@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* Bunty Store's design tokens: every colour used on the site is one of these. */
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --color-brand: #5b3df5;
+  --color-brand-dark: #4327d9;
+  --color-brand-50: #f1eeff;
+  --color-brand-100: #e2dcff;
+  --color-sun: #ffc233;
+  --color-sun-50: #fff6dc;
+  --color-ink: #1b1b2f;
+  --color-ink-2: #4b4b63;
+  --color-ink-3: #6b6b80;
+  --color-line: #e6e6ef;
+  --color-canvas: #f6f6fa;
+  --color-surface: #ffffff;
+  --color-ok: #127a4b;
+  --color-ok-50: #e6f5ed;
+  --color-warn: #a35200;
+  --color-warn-50: #fff1e0;
+  --color-bad: #c62828;
+  --color-bad-50: #fdecec;
+
+  --radius-card: 14px;
+}
+
+html {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* The product picture: an emoji on a soft tile tinted by the product's hue. */
+.tile {
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 30% 25%, hsl(var(--h) 90% 97%), hsl(var(--h) 70% 90%));
+  border-radius: var(--radius-card);
+  user-select: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
