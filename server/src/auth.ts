@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import type { NextFunction, Request, Response } from "express";
 
 import { HttpError } from "./errors";
+import { UserModel } from "./models";
 
 export const SESSION_COOKIE = "bunty_session";
 const SESSION_DAYS = 7;
@@ -38,8 +39,9 @@ export function dummyVerify(password: string): Promise<boolean> {
 export function createSessions(secret: string, secure: boolean) {
   const key = new TextEncoder().encode(secret);
 
-  async function issue(res: Response, user: SessionUser): Promise<void> {
-    const token = await new SignJWT({ role: user.role })
+  /** `version` is the account's sessionVersion: when it changes, this session stops working. */
+  async function issue(res: Response, user: SessionUser, version: number): Promise<void> {
+    const token = await new SignJWT({ role: user.role, v: version })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()
@@ -58,14 +60,21 @@ export function createSessions(secret: string, secure: boolean) {
     res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: "lax", secure, path: "/" });
   }
 
-  /** Reads the session if there is one; never rejects the request. */
+  /**
+   * Reads the session if there is one; never rejects the request. The account is
+   * looked up each time, so a reset password or a changed role applies at once.
+   */
   async function read(req: Request, _res: Response, next: NextFunction): Promise<void> {
     const token = readCookie(req.headers.cookie, SESSION_COOKIE);
     if (token) {
       try {
         const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
-        if (typeof payload.sub === "string" && (payload.role === "customer" || payload.role === "admin")) {
-          req.user = { id: payload.sub, role: payload.role };
+        if (typeof payload.sub === "string" && /^[a-f0-9]{24}$/.test(payload.sub)) {
+          const user = await UserModel.findById(payload.sub, { role: 1, sessionVersion: 1 }).lean();
+          const version = typeof payload.v === "number" ? payload.v : 0;
+          if (user && version === (user.sessionVersion ?? 0)) {
+            req.user = { id: payload.sub, role: user.role === "admin" ? "admin" : "customer" };
+          }
         }
       } catch {
         // expired or tampered: treated as signed out

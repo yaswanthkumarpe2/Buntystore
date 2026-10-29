@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import { SignJWT } from "jose";
 import { z } from "zod";
 
+import type { OrderNotifier } from "./emails";
 import { HttpError, notFound, parse } from "./errors";
 import { ConnectorActionModel, ConnectorNonceModel, OrderModel, UserModel, type OrderDoc, type OrderStatus } from "./models";
 import { cancelOrder, requestReturn, toOrderView } from "./orders";
@@ -239,7 +240,8 @@ function idempotencyKey(req: Request): string {
 
 // ---------------------------------------------------------------- the routes
 
-export function serviqoRouter(opts: { connectorSecret?: string }): Router {
+export function serviqoRouter(opts: { connectorSecret?: string; notify?: OrderNotifier }): Router {
+  const notify = opts.notify ?? (() => undefined);
   const r = Router();
 
   if (!opts.connectorSecret) {
@@ -320,9 +322,11 @@ export function serviqoRouter(opts: { connectorSecret?: string }): Router {
     const { id } = await customerOf(req);
     const number = String(req.params.number);
     const { reason } = parse(z.object({ reason: z.enum(CANCEL_REASONS) }), req.body);
-    const outcome = await once(key, "cancel", id, number, async () => ({
-      order: toConnectorOrderView(await cancelOrder(id, number, reason)),
-    }));
+    const outcome = await once(key, "cancel", id, number, async () => {
+      const order = await cancelOrder(id, number, reason);
+      notify(order, "cancelled");
+      return { order: toConnectorOrderView(order) };
+    });
     res.status(outcome.status).json(outcome.body);
   });
 
@@ -332,9 +336,11 @@ export function serviqoRouter(opts: { connectorSecret?: string }): Router {
     const number = String(req.params.number);
     // no free-text details from the assistant: the customer can add those on the order page
     const { reason } = parse(z.object({ reason: z.enum(RETURN_REASONS) }), req.body);
-    const outcome = await once(key, "return", id, number, async () => ({
-      order: toConnectorOrderView(await requestReturn(id, number, reason, "")),
-    }));
+    const outcome = await once(key, "return", id, number, async () => {
+      const order = await requestReturn(id, number, reason, "");
+      notify(order, "return_requested");
+      return { order: toConnectorOrderView(order) };
+    });
     res.status(outcome.status).json(outcome.body);
   });
 

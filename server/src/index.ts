@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 
 import { createApp } from "./app";
 import { loadEnv } from "./env";
+import { resendMailer } from "./mail";
 import { ensureCatalog } from "./seed/catalogSeed";
 
 async function main() {
@@ -22,8 +23,14 @@ async function main() {
       chat:
         env.SERVIQO_URL && env.SERVIQO_WIDGET_KEY ? { origin: env.SERVIQO_URL, widgetKey: env.SERVIQO_WIDGET_KEY } : undefined,
     },
+    email:
+      env.RESEND_API_KEY && env.EMAIL_FROM && env.PUBLIC_URL
+        ? { mailer: resendMailer({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }), siteUrl: env.PUBLIC_URL }
+        : undefined,
   });
-  app.listen(env.PORT, () => console.log(`Bunty Store listening on :${env.PORT}`));
+  app.listen(env.PORT, () =>
+    console.log(`Bunty Store listening on :${env.PORT} (email ${env.RESEND_API_KEY ? "on" : "off"})`),
+  );
 }
 
 main().catch((err) => {

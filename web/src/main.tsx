@@ -2,7 +2,15 @@ import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
-import { AccountPage, AdminPage, AuthPage, OrderDetailPage, OrdersPage } from "./pages/orders";
+import {
+  AccountPage,
+  AdminPage,
+  AuthPage,
+  ForgotPasswordPage,
+  OrderDetailPage,
+  OrdersPage,
+  ResetPasswordPage,
+} from "./pages/orders";
 import { CartPage, CheckoutPage, HomePage, ListingPage, OrderPlacedPage, ProductPage } from "./pages/shop";
 import { StoreProvider } from "./state";
 import { Empty, Layout } from "./ui";
@@ -34,6 +42,8 @@ function App() {
         <Route path="/orders/:number" element={<OrderDetailPage />} />
         <Route path="/signin" element={<AuthPage mode="signin" />} />
         <Route path="/signup" element={<AuthPage mode="signup" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Empty emoji="🧭" title="Page not found">This page does not exist.</Empty>} />

@@ -301,7 +301,8 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto grid max-w-6xl gap-2 px-4 py-6 text-sm text-ink-3 sm:flex sm:justify-between">
+        {/* bottom room on phones so the round chat button never covers the last line */}
+        <div className="mx-auto grid max-w-6xl gap-2 px-4 pt-6 pb-24 text-sm text-ink-3 sm:flex sm:justify-between sm:pb-6">
           <span>© Bunty Store — a demo store for showing how Serviqo works with a real business.</span>
           <span>Pay on delivery · {7}-day returns · Free delivery over ₹499</span>
         </div>

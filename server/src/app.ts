@@ -5,6 +5,7 @@ import express from "express";
 import helmet from "helmet";
 
 import { createSessions } from "./auth";
+import { orderNotifier, type EmailSetup } from "./emails";
 import { errorHandler } from "./errors";
 import { apiRouter } from "./routes";
 import { serviqoRouter, type ServiqoChat } from "./serviqo";
@@ -18,6 +19,8 @@ export interface AppOptions {
   webDist?: string;
   /** Serviqo's connector and identity secrets and its chat; each part is off until it is set. */
   serviqo?: { connectorSecret?: string; identitySecret?: string; chat?: ServiqoChat };
+  /** Email for order updates and password reset; off when unset. */
+  email?: EmailSetup;
 }
 
 /** The security policy opens only as far as the chat needs: its script, its API and live updates, and logos. */
@@ -44,8 +47,9 @@ export function createApp(opts: AppOptions) {
       },
     }),
   );
+  const notify = orderNotifier(opts.email);
   // Before the JSON parser: the connector checks a signature over the raw body.
-  app.use("/api/serviqo", serviqoRouter({ connectorSecret: opts.serviqo?.connectorSecret }));
+  app.use("/api/serviqo", serviqoRouter({ connectorSecret: opts.serviqo?.connectorSecret, notify }));
   app.use(express.json({ limit: "50kb" }));
 
   const sessions = createSessions(opts.sessionSecret, opts.production);
@@ -57,6 +61,8 @@ export function createApp(opts: AppOptions) {
       authLimit: opts.authLimit ?? 20,
       identitySecret: opts.serviqo?.identitySecret,
       chat: opts.serviqo?.chat,
+      email: opts.email,
+      notify,
     }),
   );
 

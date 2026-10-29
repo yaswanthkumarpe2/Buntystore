@@ -7,6 +7,9 @@ deliveries are simulated: nothing is charged and nothing is shipped.
 ## What it does
 
 - **Accounts** — sign up and sign in with email and password (argon2 hashes, an http-only session cookie, rate-limited).
+  Forgot password: a one-time link by email that works for 30 minutes; using it signs the account out everywhere else.
+- **Emails** — the customer hears when an order is placed, shipped, out for delivery, delivered or cancelled, and at each
+  step of a return. Every email says it comes from a demo store. Sent through Resend; off until `RESEND_API_KEY` is set.
 - **Shop** — 60 products in Electronics, Fashion, Home & Kitchen, Books, Beauty and Grocery; search, sort, product pages.
 - **Cart and checkout** — delivery address, pay on delivery, free delivery from ₹499 (₹40 below).
 - **Orders** — every order has a number like `BS-7K2M9XQ4` and a timeline: Placed → Packed → Shipped → Out for delivery → Delivered.
@@ -46,7 +49,8 @@ npm run dev:web
 ```
 
 Open http://localhost:5180. After `npm run build`, http://localhost:4000 also serves the built site with the same
-security policy as production. Pass `SERVIQO_URL` and `SERVIQO_WIDGET_KEY` to the preview to see the chat.
+security policy as production. Pass `SERVIQO_URL` and `SERVIQO_WIDGET_KEY` to the preview to see the chat, and
+`PREVIEW_EMAILS=1` to print every email (reset links too) in the preview's terminal instead of sending it.
 
 **With your own MongoDB:** copy `.env.example` to `.env`, fill it in, then `npm run seed` and `npm run dev:server`.
 
@@ -70,6 +74,9 @@ One service on any Node 22 host. Build command `npm install && npm run build`, s
 | `SERVIQO_IDENTITY_SECRET` | optional: 32+ random characters, a different value, also entered in Serviqo |
 | `SERVIQO_URL` | optional: `https://serviqo.live`, where the chat comes from (not a secret) |
 | `SERVIQO_WIDGET_KEY` | optional: Bunty's widget key from Serviqo, starting `wk_` (not a secret: every page with the chat shows it) |
+| `RESEND_API_KEY` | optional: a Resend API key (`re_…`) allowed to send from your domain; turns email on |
+| `EMAIL_FROM` | with the key: the sender, e.g. `Bunty Store <orders@bunty.me>`, on a domain verified in Resend |
+| `PUBLIC_URL` | with the key: this site's address, e.g. `https://bunty.me`, for links in emails |
 
 The catalogue is added automatically on first start. To create the store-team account and demo customers, run
 `npm run seed` once with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` set.

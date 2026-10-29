@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { api, ApiError, dateTime, day, money, type Order } from "../api";
+import { api, ApiError, dateTime, day, money, type Order, type User } from "../api";
 import { useStore } from "../state";
 import { Alert, Button, Card, Empty, Modal, Spinner, StatusChip, Tile, Tracker } from "../ui";
 import { AddressForm } from "./shop";
@@ -277,7 +277,7 @@ function ReasonDialog({
 // ---------------------------------------------------------------- sign in / sign up / account
 
 export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
-  const { user, signIn, signUp } = useStore();
+  const { user, signIn, signUp, passwordReset } = useStore();
   const [params] = useSearchParams();
   const next = params.get("next")?.startsWith("/") ? params.get("next")! : "/";
   const nav = useNavigate();
@@ -323,6 +323,11 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
             <input required type="password" minLength={mode === "signup" ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} className={input} />
             {mode === "signup" && <span className="mt-1 block text-xs text-ink-3">At least 8 characters.</span>}
           </label>
+          {mode === "signin" && passwordReset && (
+            <p className="text-right text-sm">
+              <Link to="/forgot-password" className="font-semibold text-brand hover:underline">Forgot password?</Link>
+            </p>
+          )}
           {error && <Alert>{error}</Alert>}
           <Button type="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}</Button>
         </form>
@@ -333,6 +338,128 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
             <>Already have an account? <Link to={`/signin?next=${encodeURIComponent(next)}`} className="font-semibold text-brand hover:underline">Sign in</Link></>
           )}
         </p>
+      </Card>
+    </div>
+  );
+}
+
+const authInput = "h-12 w-full rounded-xl border border-line bg-surface px-3 text-[15px] focus:border-brand";
+
+export function ForgotPasswordPage() {
+  const { passwordReset } = useStore();
+  const [email, setEmail] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="mx-auto max-w-sm py-6">
+      <Card className="!p-6">
+        <h1 className="text-2xl font-bold">Forgot your password?</h1>
+        {sentTo ? (
+          <div className="mt-4 space-y-4">
+            <Alert tone="ok">
+              If an account uses <strong>{sentTo}</strong>, we have sent it a link to choose a new password. The link
+              works once, for 30 minutes.
+            </Alert>
+            <p className="text-sm text-ink-2">No email? Check your spam folder, or try again in a couple of minutes.</p>
+          </div>
+        ) : !passwordReset ? (
+          <p className="mt-3 text-sm text-ink-2">Password reset by email is not set up on this store yet.</p>
+        ) : (
+          <form
+            className="mt-5 space-y-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              setError(null);
+              try {
+                await api("/auth/forgot", { method: "POST", body: { email } });
+                setSentTo(email.trim());
+              } catch (err) {
+                setError((err as ApiError).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <p className="text-sm text-ink-2">Enter your account's email and we will send you a link to choose a new password.</p>
+            <label className="block"><span className="mb-1 block text-sm font-semibold">Email</span>
+              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className={authInput} />
+            </label>
+            {error && <Alert>{error}</Alert>}
+            <Button type="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : "Send the link"}</Button>
+          </form>
+        )}
+        <p className="mt-5 text-center text-sm text-ink-2">
+          <Link to="/signin" className="font-semibold text-brand hover:underline">Back to sign in</Link>
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+export function ResetPasswordPage() {
+  const { setUser, refreshCart, notify } = useStore();
+  const nav = useNavigate();
+  // the token travels in the #fragment, which browsers never send to a server: read it once, then clear it
+  const [token] = useState(() => window.location.hash.slice(1));
+  useEffect(() => {
+    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  const [password, setPassword] = useState("");
+  const [again, setAgain] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="mx-auto max-w-sm py-6">
+      <Card className="!p-6">
+        <h1 className="text-2xl font-bold">Choose a new password</h1>
+        {!token ? (
+          <div className="mt-4 space-y-4">
+            <Alert>This page needs the link from your email. Please open the link again, or ask for a new one.</Alert>
+            <Link to="/forgot-password"><Button className="w-full">Ask for a new link</Button></Link>
+          </div>
+        ) : (
+          <form
+            className="mt-5 space-y-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (password !== again) {
+                setError("The two passwords are not the same.");
+                return;
+              }
+              setBusy(true);
+              setError(null);
+              try {
+                const r = await api<{ user: User }>("/auth/reset", { method: "POST", body: { token, password } });
+                setUser(r.user);
+                await refreshCart();
+                notify("Password changed. You are signed in.");
+                nav("/", { replace: true });
+              } catch (err) {
+                setError((err as ApiError).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <p className="text-sm text-ink-2">Every other device signed in to your account will be signed out.</p>
+            <label className="block"><span className="mb-1 block text-sm font-semibold">New password</span>
+              <input required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" className={authInput} />
+              <span className="mt-1 block text-xs text-ink-3">At least 8 characters.</span>
+            </label>
+            <label className="block"><span className="mb-1 block text-sm font-semibold">The same password again</span>
+              <input required type="password" minLength={8} value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" className={authInput} />
+            </label>
+            {error && (
+              <Alert>
+                {error}{" "}
+                {error.includes("new one") && <Link to="/forgot-password" className="font-semibold underline">Ask for a new link</Link>}
+              </Alert>
+            )}
+            <Button type="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : "Save the new password"}</Button>
+          </form>
+        )}
       </Card>
     </div>
   );

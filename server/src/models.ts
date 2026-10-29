@@ -42,12 +42,30 @@ const userSchema = new Schema(
     role: { type: String, enum: ["customer", "admin"], default: "customer" },
     address: { type: addressSchema, default: null },
     cart: { type: [cartLineSchema], default: [] },
+    /** Part of every session; raising it (on a password reset) signs the account out everywhere. */
+    sessionVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
 
 export const UserModel = model("User", userSchema);
 export type UserDoc = InferSchemaType<typeof userSchema> & { _id: Types.ObjectId };
+
+/**
+ * A password reset link that has not been used yet. Only the SHA-256 of the
+ * link's token is kept; using the link deletes the row, and MongoDB removes
+ * rows that were never used once they expire.
+ */
+const passwordResetSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    tokenHash: { type: String, required: true, unique: true },
+    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
+
+export const PasswordResetModel = model("PasswordReset", passwordResetSchema);
 
 // ---------------------------------------------------------------- products
 

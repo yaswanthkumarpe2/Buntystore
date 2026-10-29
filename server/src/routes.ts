@@ -1,10 +1,30 @@
+import { createHash, randomBytes } from "node:crypto";
+
 import { Router, type Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
 import { dummyVerify, hashPassword, requireAdmin, requireUser, verifyPassword, type createSessions } from "./auth";
 import { HttpError, notFound, parse } from "./errors";
-import { CATEGORIES, CATEGORY_IDS, ORDER_STATUSES, OrderModel, ProductModel, UserModel, type OrderDoc } from "./models";
+import {
+  RESET_MINUTES,
+  isOrderEvent,
+  passwordChangedMail,
+  passwordResetMail,
+  type EmailSetup,
+  type OrderNotifier,
+} from "./emails";
+import { sendLater } from "./mail";
+import {
+  CATEGORIES,
+  CATEGORY_IDS,
+  ORDER_STATUSES,
+  OrderModel,
+  PasswordResetModel,
+  ProductModel,
+  UserModel,
+  type OrderDoc,
+} from "./models";
 import {
   advanceOrder,
   advanceReturn,
@@ -38,6 +58,7 @@ const address = z.object({
 });
 
 const userId = (req: Request) => req.user!.id;
+const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
 function toProductView(p: {
   slug: string;
@@ -76,8 +97,16 @@ function toProductView(p: {
 
 export function apiRouter(
   sessions: Sessions,
-  opts: { authLimit: number; identitySecret?: string; chat?: ServiqoChat },
+  opts: {
+    authLimit: number;
+    identitySecret?: string;
+    chat?: ServiqoChat;
+    /** Email (order updates and password reset); off when unset. */
+    email?: EmailSetup;
+    notify: OrderNotifier;
+  },
 ): Router {
+  const { notify } = opts;
   const r = Router();
 
   const authLimiter = rateLimit({
@@ -103,6 +132,8 @@ export function apiRouter(
       },
       // the Serviqo chat, when it is set up: the page loads widget.js with this key
       chat: opts.chat ? { scriptUrl: `${opts.chat.origin}/widget.js`, widgetKey: opts.chat.widgetKey } : null,
+      // "Forgot password?" needs email, so the page offers it only when email is on
+      passwordReset: Boolean(opts.email),
     });
   });
 
@@ -116,7 +147,7 @@ export function apiRouter(
     const exists = await UserModel.exists({ email: body.email });
     if (exists) throw new HttpError(409, "EMAIL_TAKEN", "An account with this email already exists. Please sign in.");
     const user = await UserModel.create({ name: body.name, email: body.email, passwordHash: await hashPassword(body.password) });
-    await sessions.issue(res, { id: user._id.toString(), role: "customer" });
+    await sessions.issue(res, { id: user._id.toString(), role: "customer" }, user.sessionVersion);
     res.status(201).json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: null } });
   });
 
@@ -125,7 +156,55 @@ export function apiRouter(
     const user = await UserModel.findOne({ email: body.email });
     const ok = user ? await verifyPassword(user.passwordHash, body.password) : await dummyVerify(body.password);
     if (!user || !ok) throw new HttpError(401, "WRONG_DETAILS", "Email or password is not correct.");
-    await sessions.issue(res, { id: user._id.toString(), role: user.role as "customer" | "admin" });
+    await sessions.issue(res, { id: user._id.toString(), role: user.role as "customer" | "admin" }, user.sessionVersion);
+    res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: user.address } });
+  });
+
+  /**
+   * Sends a reset link if an account uses that email. The answer is the same
+   * either way, so it cannot be used to find out who has an account, and at most
+   * one email goes out per account every 2 minutes.
+   */
+  r.post("/auth/forgot", authLimiter, async (req, res) => {
+    const setup = opts.email;
+    if (!setup) throw new HttpError(404, "NOT_AVAILABLE", "Password reset by email is not set up on this store.");
+    const body = parse(z.object({ email }), req.body);
+    const user = await UserModel.findOne({ email: body.email }, { name: 1, email: 1 }).lean();
+    if (user) {
+      const recent = await PasswordResetModel.exists({ userId: user._id, createdAt: { $gt: new Date(Date.now() - 2 * 60 * 1000) } });
+      if (!recent) {
+        const token = randomBytes(32).toString("base64url");
+        await PasswordResetModel.deleteMany({ userId: user._id });
+        await PasswordResetModel.create({
+          userId: user._id,
+          tokenHash: sha256(token),
+          expiresAt: new Date(Date.now() + RESET_MINUTES * 60 * 1000),
+        });
+        // the token is in the #fragment: browsers never send it to a server or in a Referer
+        sendLater(setup.mailer, passwordResetMail(user, `${setup.siteUrl}/reset-password#${token}`), "password reset");
+      }
+    }
+    res.json({ ok: true });
+  });
+
+  /** Uses a reset link once: sets the new password, signs the account out everywhere else, and signs in here. */
+  r.post("/auth/reset", authLimiter, async (req, res) => {
+    const setup = opts.email;
+    if (!setup) throw new HttpError(404, "NOT_AVAILABLE", "Password reset by email is not set up on this store.");
+    const body = parse(z.object({ token: z.string().min(20).max(100), password }), req.body);
+    const link = await PasswordResetModel.findOneAndDelete({ tokenHash: sha256(body.token), expiresAt: { $gt: new Date() } });
+    if (!link) {
+      throw new HttpError(400, "RESET_LINK_INVALID", "This link has expired or was already used. Please ask for a new one.");
+    }
+    const user = await UserModel.findOneAndUpdate(
+      { _id: link.userId },
+      { $set: { passwordHash: await hashPassword(body.password) }, $inc: { sessionVersion: 1 } },
+      { returnDocument: "after" },
+    );
+    if (!user) throw new HttpError(400, "RESET_LINK_INVALID", "This link has expired or was already used. Please ask for a new one.");
+    await PasswordResetModel.deleteMany({ userId: user._id });
+    sendLater(setup.mailer, passwordChangedMail(user, setup.siteUrl), "password changed");
+    await sessions.issue(res, { id: user._id.toString(), role: user.role as "customer" | "admin" }, user.sessionVersion);
     res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: user.address } });
   });
 
@@ -228,6 +307,7 @@ export function apiRouter(
 
   r.post("/orders", requireUser, async (req, res) => {
     const order = await placeOrder(userId(req));
+    notify(order, "placed");
     res.status(201).json({ order: toOrderView(order) });
   });
 
@@ -245,6 +325,7 @@ export function apiRouter(
   r.post("/orders/:number/cancel", requireUser, async (req, res) => {
     const { reason } = parse(z.object({ reason: z.enum(CANCEL_REASONS) }), req.body);
     const order = await cancelOrder(userId(req), String(req.params.number), reason);
+    notify(order, "cancelled");
     res.json({ order: toOrderView(order) });
   });
 
@@ -254,6 +335,7 @@ export function apiRouter(
       req.body,
     );
     const order = await requestReturn(userId(req), String(req.params.number), body.reason, body.details);
+    notify(order, "return_requested");
     res.json({ order: toOrderView(order) });
   });
 
@@ -284,16 +366,23 @@ export function apiRouter(
   });
 
   r.post("/admin/orders/:number/advance", requireAdmin, async (req, res) => {
-    res.json({ order: toOrderView(await advanceOrder(String(req.params.number))) });
+    const order = await advanceOrder(String(req.params.number));
+    if (isOrderEvent(order.status)) notify(order, order.status);
+    res.json({ order: toOrderView(order) });
   });
 
   r.post("/admin/orders/:number/return/advance", requireAdmin, async (req, res) => {
-    res.json({ order: toOrderView(await advanceReturn(String(req.params.number))) });
+    const order = await advanceReturn(String(req.params.number));
+    const event = `return_${order.return!.status}`;
+    if (isOrderEvent(event)) notify(order, event);
+    res.json({ order: toOrderView(order) });
   });
 
   r.post("/admin/orders/:number/return/reject", requireAdmin, async (req, res) => {
     const { note } = parse(z.object({ note: z.string().trim().min(3, "Say why").max(300) }), req.body);
-    res.json({ order: toOrderView(await rejectReturn(String(req.params.number), note)) });
+    const order = await rejectReturn(String(req.params.number), note);
+    notify(order, "return_rejected");
+    res.json({ order: toOrderView(order) });
   });
 
   r.use((_req, _res, next) => next(notFound("That address")));

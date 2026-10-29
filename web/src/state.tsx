@@ -9,6 +9,8 @@ interface StoreState {
   ready: boolean;
   categories: Category[];
   policy: Policy | null;
+  /** True when the store can email a password reset link. */
+  passwordReset: boolean;
   cart: Cart | null;
   toast: string | null;
   signIn: (email: string, password: string) => Promise<void>;
@@ -27,6 +29,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [policy, setPolicy] = useState<Policy | null>(null);
+  const [passwordReset, setPasswordReset] = useState(false);
   const [cart, setCart] = useState<Cart | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -44,10 +47,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    api<{ categories: Category[]; policy: Policy; chat: ChatSetup | null }>("/store")
+    api<{ categories: Category[]; policy: Policy; chat: ChatSetup | null; passwordReset: boolean }>("/store")
       .then((s) => {
         setCategories(s.categories);
         setPolicy(s.policy);
+        setPasswordReset(s.passwordReset);
         loadServiqoChat(s.chat);
       })
       .catch(() => undefined);
@@ -93,8 +97,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, categories, policy, cart, toast, signIn, signUp, signOut, setUser, refreshCart, setQty, notify }),
-    [user, ready, categories, policy, cart, toast, signIn, signUp, signOut, refreshCart, setQty, notify],
+    () => ({ user, ready, categories, policy, passwordReset, cart, toast, signIn, signUp, signOut, setUser, refreshCart, setQty, notify }),
+    [user, ready, categories, policy, passwordReset, cart, toast, signIn, signUp, signOut, refreshCart, setQty, notify],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -11,6 +11,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 
 import { createApp } from "../src/app";
+import type { Mail } from "../src/mail";
 
 async function main() {
   const mongo = await MongoMemoryServer.create();
@@ -41,9 +42,17 @@ async function main() {
     identitySecret: process.env.SERVIQO_IDENTITY_SECRET,
     chat,
   };
+  // PREVIEW_EMAILS=1 prints each email here instead of sending it (order updates, reset links)
+  const email =
+    process.env.PREVIEW_EMAILS === "1"
+      ? {
+          siteUrl: "http://localhost:4000",
+          mailer: { on: true, send: async (m: Mail) => console.log(`\nEMAIL to ${m.to}: ${m.subject}\n${m.text}\n`) },
+        }
+      : undefined;
   // after `npm run build`, :4000 also serves the built site, with the same security policy as production
   const webDist = path.resolve(__dirname, "../../web/dist");
-  createApp({ sessionSecret: env.SESSION_SECRET, production: false, authLimit: 1000, serviqo, webDist }).listen(4000, () =>
+  createApp({ sessionSecret: env.SESSION_SECRET, production: false, authLimit: 1000, serviqo, webDist, email }).listen(4000, () =>
     console.log(`PREVIEW ready on :4000 (in-memory database). Sign in as team@buntystore.test or priya.sharma@example.com with: ${password}`),
   );
 }
