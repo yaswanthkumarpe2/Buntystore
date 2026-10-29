@@ -156,3 +156,34 @@ const orderSchema = new Schema(
 
 export const OrderModel = model("Order", orderSchema);
 export type OrderDoc = InferSchemaType<typeof orderSchema> & { _id: Types.ObjectId };
+
+// ---------------------------------------------------------------- the Serviqo connector
+
+/**
+ * Every signed request's nonce, kept until well after its timestamp could
+ * still be accepted, so the same signed request can never be replayed. The
+ * unique index is the check; MongoDB removes the rows on its own.
+ */
+const connectorNonceSchema = new Schema({
+  nonce: { type: String, required: true, unique: true },
+  expiresAt: { type: Date, required: true, index: { expires: 0 } },
+});
+
+export const ConnectorNonceModel = model("ConnectorNonce", connectorNonceSchema);
+
+/**
+ * The outcome of each connector action, by its Idempotency-Key: a retry of
+ * the same request gets the first answer back instead of acting twice.
+ */
+const connectorActionSchema = new Schema({
+  key: { type: String, required: true, unique: true },
+  action: { type: String, enum: ["cancel", "return"], required: true },
+  customerId: { type: String, required: true },
+  orderNumber: { type: String, required: true },
+  state: { type: String, enum: ["running", "done"], required: true },
+  responseStatus: { type: Number, default: null },
+  responseBody: { type: Schema.Types.Mixed, default: null },
+  expiresAt: { type: Date, required: true, index: { expires: 0 } },
+});
+
+export const ConnectorActionModel = model("ConnectorAction", connectorActionSchema);

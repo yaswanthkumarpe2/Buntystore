@@ -7,6 +7,7 @@ import { OrderModel, ProductModel, UserModel, type OrderDoc, type OrderStatus, t
 import {
   RETURN_LABEL,
   STATUS_LABEL,
+  cancelBlockedReason,
   canCancel,
   deliveryFee,
   nextReturnStatus,
@@ -167,8 +168,9 @@ export async function cancelOrder(userId: string, number: string, reason: string
   );
   if (!updated) {
     const order = await ownOrder(userId, number);
-    if (order.status === "cancelled") throw new HttpError(409, "ALREADY_CANCELLED", "This order is already cancelled.");
-    throw new HttpError(409, "CANNOT_CANCEL", "This order has already shipped, so it cannot be cancelled. You can return it after delivery.");
+    const status = order.status as OrderStatus;
+    const why = cancelBlockedReason(status) ?? "This order cannot be cancelled now.";
+    throw new HttpError(409, status === "cancelled" ? "ALREADY_CANCELLED" : "CANNOT_CANCEL", why);
   }
   await Promise.all(updated.items.map((i) => ProductModel.updateOne({ _id: i.productId }, { $inc: { stock: i.qty } })));
   return updated as unknown as OrderDoc;

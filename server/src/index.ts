@@ -16,6 +16,7 @@ async function main() {
     sessionSecret: env.SESSION_SECRET,
     production: env.NODE_ENV === "production",
     webDist: path.resolve(__dirname, "../../web/dist"),
+    serviqo: { connectorSecret: env.SERVIQO_CONNECTOR_SECRET, identitySecret: env.SERVIQO_IDENTITY_SECRET },
   });
   app.listen(env.PORT, () => console.log(`Bunty Store listening on :${env.PORT}`));
 }

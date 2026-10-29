@@ -22,6 +22,7 @@ import {
   RETURN_WINDOW_DAYS,
   deliveryFee,
 } from "./policy";
+import { issueIdentityToken } from "./serviqo";
 
 type Sessions = ReturnType<typeof createSessions>;
 
@@ -73,7 +74,7 @@ function toProductView(p: {
   };
 }
 
-export function apiRouter(sessions: Sessions, opts: { authLimit: number }): Router {
+export function apiRouter(sessions: Sessions, opts: { authLimit: number; identitySecret?: string }): Router {
   const r = Router();
 
   const authLimiter = rateLimit({
@@ -134,6 +135,15 @@ export function apiRouter(sessions: Sessions, opts: { authLimit: number }): Rout
       throw new HttpError(401, "SIGN_IN_REQUIRED", "Please sign in to continue.");
     }
     res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: user.address } });
+  });
+
+  /** The signed-in customer's short-lived pass for the Serviqo chat (Serviqo ADR-060). */
+  r.get("/me/serviqo-identity", requireUser, async (req, res) => {
+    if (!opts.identitySecret) throw notFound("That address");
+    const user = await UserModel.findById(userId(req), { name: 1, email: 1 }).lean();
+    if (!user) throw new HttpError(401, "SIGN_IN_REQUIRED", "Please sign in to continue.");
+    const pass = await issueIdentityToken(opts.identitySecret, { id: userId(req), name: user.name, email: user.email });
+    res.set("Cache-Control", "no-store").json(pass);
   });
 
   r.put("/me/address", requireUser, async (req, res) => {

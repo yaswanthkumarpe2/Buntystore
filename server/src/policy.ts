@@ -53,6 +53,13 @@ export function canCancel(status: OrderStatus): boolean {
   return status === "placed" || status === "packed";
 }
 
+/** Why an order cannot be cancelled now, in plain words; null when it can. */
+export function cancelBlockedReason(status: OrderStatus): string | null {
+  if (canCancel(status)) return null;
+  if (status === "cancelled") return "This order is already cancelled.";
+  return "This order has already shipped, so it cannot be cancelled. You can return it after delivery.";
+}
+
 export function nextStatus(status: OrderStatus): OrderStatus | null {
   const i = ORDER_FLOW.indexOf(status);
   return i >= 0 && i < ORDER_FLOW.length - 1 ? (ORDER_FLOW[i + 1] ?? null) : null;

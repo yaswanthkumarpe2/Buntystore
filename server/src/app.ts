@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { createSessions } from "./auth";
 import { errorHandler } from "./errors";
 import { apiRouter } from "./routes";
+import { serviqoRouter } from "./serviqo";
 
 export interface AppOptions {
   sessionSecret: string;
@@ -15,6 +16,8 @@ export interface AppOptions {
   authLimit?: number;
   /** The built web app, served in production. */
   webDist?: string;
+  /** Serviqo's connector and identity secrets; each part is off until its secret is set. */
+  serviqo?: { connectorSecret?: string; identitySecret?: string };
 }
 
 export function createApp(opts: AppOptions) {
@@ -33,11 +36,17 @@ export function createApp(opts: AppOptions) {
       },
     }),
   );
+  // Before the JSON parser: the connector checks a signature over the raw body.
+  app.use("/api/serviqo", serviqoRouter({ connectorSecret: opts.serviqo?.connectorSecret }));
   app.use(express.json({ limit: "50kb" }));
 
   const sessions = createSessions(opts.sessionSecret, opts.production);
   app.get("/health", (_req, res) => res.json({ ok: true }));
-  app.use("/api", sessions.read, apiRouter(sessions, { authLimit: opts.authLimit ?? 20 }));
+  app.use(
+    "/api",
+    sessions.read,
+    apiRouter(sessions, { authLimit: opts.authLimit ?? 20, identitySecret: opts.serviqo?.identitySecret }),
+  );
 
   if (opts.webDist && existsSync(opts.webDist)) {
     app.use(express.static(opts.webDist, { index: false, maxAge: "1h" }));

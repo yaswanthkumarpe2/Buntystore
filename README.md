@@ -55,22 +55,31 @@ Open http://localhost:5180.
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
-## Deploy (Railway)
+## Deploy
 
-One service. Build command `npm run build`, start command `npm start`. Set these variables in Railway → Variables:
+One service on any Node 22 host. Build command `npm install && npm run build`, start command `npm start`, health check
+`/health`. Set these variables on the host:
 
 | Variable | Value |
 |---|---|
 | `NODE_ENV` | `production` |
 | `MONGODB_URI` | a MongoDB connection string (its own database, not Serviqo's) |
 | `SESSION_SECRET` | 32+ random characters |
+| `SERVIQO_CONNECTOR_SECRET` | optional: 32+ random characters, the same value entered in Serviqo's connector settings |
+| `SERVIQO_IDENTITY_SECRET` | optional: 32+ random characters, a different value, also entered in Serviqo |
 
 The catalogue is added automatically on first start. To create the store-team account and demo customers, run
 `npm run seed` once with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` set.
 
-## Coming next: Serviqo inside Bunty Store
+## Serviqo inside Bunty Store
 
-1. A secure link so Serviqo's AI assistant can read a signed-in customer's own orders (never anyone else's) and, after
-   the customer confirms in the chat, cancel an order or start a return.
+**Built:** the connector Serviqo's AI uses to answer a signed-in customer about their own orders and, after the
+customer taps Confirm in the chat, cancel an order or start a return. Every request must be signed; responses never
+include an address or a phone number; Bunty's own rules decide every action. How it works:
+[docs/serviqo-connector.md](docs/serviqo-connector.md). It is off until `SERVIQO_CONNECTOR_SECRET` is set.
+
+**Coming next:**
+
+1. Serviqo's side: connector settings, the signed-in customer's identity in the chat, and the confirmation cards.
 2. A Customers space in Serviqo where the support team can look up a Bunty customer and their orders.
 3. The Serviqo chat widget on every page, behind a small round AI button.
