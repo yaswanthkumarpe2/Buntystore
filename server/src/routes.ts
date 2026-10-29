@@ -22,7 +22,7 @@ import {
   RETURN_WINDOW_DAYS,
   deliveryFee,
 } from "./policy";
-import { issueIdentityToken } from "./serviqo";
+import { issueIdentityToken, type ServiqoChat } from "./serviqo";
 
 type Sessions = ReturnType<typeof createSessions>;
 
@@ -74,7 +74,10 @@ function toProductView(p: {
   };
 }
 
-export function apiRouter(sessions: Sessions, opts: { authLimit: number; identitySecret?: string }): Router {
+export function apiRouter(
+  sessions: Sessions,
+  opts: { authLimit: number; identitySecret?: string; chat?: ServiqoChat },
+): Router {
   const r = Router();
 
   const authLimiter = rateLimit({
@@ -98,6 +101,8 @@ export function apiRouter(sessions: Sessions, opts: { authLimit: number; identit
         cancelReasons: CANCEL_REASONS,
         returnReasons: RETURN_REASONS,
       },
+      // the Serviqo chat, when it is set up: the page loads widget.js with this key
+      chat: opts.chat ? { scriptUrl: `${opts.chat.origin}/widget.js`, widgetKey: opts.chat.widgetKey } : null,
     });
   });
 

@@ -369,3 +369,11 @@ export async function issueIdentityToken(
     .sign(new TextEncoder().encode(secret));
   return { token, expiresAt };
 }
+
+// ---------------------------------------------------------------- the chat on every page
+
+/** The Serviqo chat: where widget.js comes from (a bare origin) and Bunty's widget key. */
+export interface ServiqoChat {
+  origin: string;
+  widgetKey: string;
+}

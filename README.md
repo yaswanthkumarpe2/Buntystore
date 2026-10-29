@@ -45,7 +45,8 @@ Then, in a second terminal:
 npm run dev:web
 ```
 
-Open http://localhost:5180.
+Open http://localhost:5180. After `npm run build`, http://localhost:4000 also serves the built site with the same
+security policy as production. Pass `SERVIQO_URL` and `SERVIQO_WIDGET_KEY` to the preview to see the chat.
 
 **With your own MongoDB:** copy `.env.example` to `.env`, fill it in, then `npm run seed` and `npm run dev:server`.
 
@@ -67,6 +68,8 @@ One service on any Node 22 host. Build command `npm install && npm run build`, s
 | `SESSION_SECRET` | 32+ random characters |
 | `SERVIQO_CONNECTOR_SECRET` | optional: 32+ random characters, the same value entered in Serviqo's connector settings |
 | `SERVIQO_IDENTITY_SECRET` | optional: 32+ random characters, a different value, also entered in Serviqo |
+| `SERVIQO_URL` | optional: `https://serviqo.live`, where the chat comes from (not a secret) |
+| `SERVIQO_WIDGET_KEY` | optional: Bunty's widget key from Serviqo, starting `wk_` (not a secret: every page with the chat shows it) |
 
 The catalogue is added automatically on first start. To create the store-team account and demo customers, run
 `npm run seed` once with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` set.
@@ -78,8 +81,12 @@ customer taps Confirm in the chat, cancel an order or start a return. Every requ
 include an address or a phone number; Bunty's own rules decide every action. How it works:
 [docs/serviqo-connector.md](docs/serviqo-connector.md). It is off until `SERVIQO_CONNECTOR_SECRET` is set.
 
+**Built:** the Serviqo chat on every page, once `SERVIQO_URL` and `SERVIQO_WIDGET_KEY` are set. The page loads
+Serviqo's `widget.js` with Bunty's key, and the security policy opens only to that address (its script, its API and
+live updates, and logos). In Serviqo, Bunty's website address must be on the widget's allowed list.
+
 **Coming next:**
 
-1. Serviqo's side: connector settings, the signed-in customer's identity in the chat, and the confirmation cards.
+1. Serviqo's side: the signed-in customer's identity in the chat, the assistant reading their orders, and the
+   confirmation cards.
 2. A Customers space in Serviqo where the support team can look up a Bunty customer and their orders.
-3. The Serviqo chat widget on every page, behind a small round AI button.

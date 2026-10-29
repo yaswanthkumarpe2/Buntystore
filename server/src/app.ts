@@ -7,7 +7,7 @@ import helmet from "helmet";
 import { createSessions } from "./auth";
 import { errorHandler } from "./errors";
 import { apiRouter } from "./routes";
-import { serviqoRouter } from "./serviqo";
+import { serviqoRouter, type ServiqoChat } from "./serviqo";
 
 export interface AppOptions {
   sessionSecret: string;
@@ -16,8 +16,19 @@ export interface AppOptions {
   authLimit?: number;
   /** The built web app, served in production. */
   webDist?: string;
-  /** Serviqo's connector and identity secrets; each part is off until its secret is set. */
-  serviqo?: { connectorSecret?: string; identitySecret?: string };
+  /** Serviqo's connector and identity secrets and its chat; each part is off until it is set. */
+  serviqo?: { connectorSecret?: string; identitySecret?: string; chat?: ServiqoChat };
+}
+
+/** The security policy opens only as far as the chat needs: its script, its API and live updates, and logos. */
+function contentSecurity(chat: ServiqoChat | undefined): Record<string, string[]> {
+  if (!chat) return { "script-src": ["'self'"], "img-src": ["'self'", "data:"], "connect-src": ["'self'"] };
+  const live = chat.origin.replace(/^http/, "ws");
+  return {
+    "script-src": ["'self'", chat.origin],
+    "img-src": ["'self'", "data:", chat.origin, "https://res.cloudinary.com"],
+    "connect-src": ["'self'", chat.origin, live],
+  };
 }
 
 export function createApp(opts: AppOptions) {
@@ -29,10 +40,7 @@ export function createApp(opts: AppOptions) {
     helmet({
       contentSecurityPolicy: {
         useDefaults: true,
-        directives: {
-          "img-src": ["'self'", "data:"],
-          "connect-src": ["'self'"],
-        },
+        directives: contentSecurity(opts.serviqo?.chat),
       },
     }),
   );
@@ -45,7 +53,11 @@ export function createApp(opts: AppOptions) {
   app.use(
     "/api",
     sessions.read,
-    apiRouter(sessions, { authLimit: opts.authLimit ?? 20, identitySecret: opts.serviqo?.identitySecret }),
+    apiRouter(sessions, {
+      authLimit: opts.authLimit ?? 20,
+      identitySecret: opts.serviqo?.identitySecret,
+      chat: opts.serviqo?.chat,
+    }),
   );
 
   if (opts.webDist && existsSync(opts.webDist)) {

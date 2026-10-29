@@ -31,7 +31,19 @@ async function main() {
   execFileSync(tsx, [path.resolve(__dirname, "../src/seed/run.ts")], { env, stdio: "inherit", shell: process.platform === "win32" });
 
   await mongoose.connect(env.MONGODB_URI);
-  createApp({ sessionSecret: env.SESSION_SECRET, production: false, authLimit: 1000 }).listen(4000, () =>
+  // the Serviqo connector and chat, when their settings are passed in (docs/serviqo-connector.md)
+  const chat =
+    process.env.SERVIQO_URL && process.env.SERVIQO_WIDGET_KEY
+      ? { origin: process.env.SERVIQO_URL, widgetKey: process.env.SERVIQO_WIDGET_KEY }
+      : undefined;
+  const serviqo = {
+    connectorSecret: process.env.SERVIQO_CONNECTOR_SECRET,
+    identitySecret: process.env.SERVIQO_IDENTITY_SECRET,
+    chat,
+  };
+  // after `npm run build`, :4000 also serves the built site, with the same security policy as production
+  const webDist = path.resolve(__dirname, "../../web/dist");
+  createApp({ sessionSecret: env.SESSION_SECRET, production: false, authLimit: 1000, serviqo, webDist }).listen(4000, () =>
     console.log(`PREVIEW ready on :4000 (in-memory database). Sign in as team@buntystore.test or priya.sharma@example.com with: ${password}`),
   );
 }

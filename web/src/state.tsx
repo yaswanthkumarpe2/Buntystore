@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { api, ApiError, type Cart, type Category, type Policy, type User } from "./api";
+import { loadServiqoChat, type ChatSetup } from "./chat";
 
 interface StoreState {
   user: User | null;
@@ -43,10 +44,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    api<{ categories: Category[]; policy: Policy }>("/store")
+    api<{ categories: Category[]; policy: Policy; chat: ChatSetup | null }>("/store")
       .then((s) => {
         setCategories(s.categories);
         setPolicy(s.policy);
+        loadServiqoChat(s.chat);
       })
       .catch(() => undefined);
     api<{ user: User }>("/me")

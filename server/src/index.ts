@@ -16,7 +16,12 @@ async function main() {
     sessionSecret: env.SESSION_SECRET,
     production: env.NODE_ENV === "production",
     webDist: path.resolve(__dirname, "../../web/dist"),
-    serviqo: { connectorSecret: env.SERVIQO_CONNECTOR_SECRET, identitySecret: env.SERVIQO_IDENTITY_SECRET },
+    serviqo: {
+      connectorSecret: env.SERVIQO_CONNECTOR_SECRET,
+      identitySecret: env.SERVIQO_IDENTITY_SECRET,
+      chat:
+        env.SERVIQO_URL && env.SERVIQO_WIDGET_KEY ? { origin: env.SERVIQO_URL, widgetKey: env.SERVIQO_WIDGET_KEY } : undefined,
+    },
   });
   app.listen(env.PORT, () => console.log(`Bunty Store listening on :${env.PORT}`));
 }

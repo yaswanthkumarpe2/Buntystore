@@ -376,3 +376,45 @@ describe("the connector's settings", () => {
     expect(() => loadEnv({ ...base, SERVIQO_CONNECTOR_SECRET: same, SERVIQO_IDENTITY_SECRET: same })).toThrow(/different/);
   });
 });
+
+// ---------------------------------------------------------------- the chat on every page
+
+describe("the Serviqo chat", () => {
+  const base = { MONGODB_URI: "mongodb://x", SESSION_SECRET: "s".repeat(32) };
+  const KEY = "wk_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+  /** The policy header as { directive: "its sources" }. */
+  const policy = (header: string | undefined) =>
+    Object.fromEntries((header ?? "").split(";").map((d) => d.trim().split(/\s+/)).map(([name, ...sources]) => [name, sources.join(" ")]));
+  const chatApp = createApp({
+    sessionSecret: "test-secret-test-secret-test-secret-123",
+    production: false,
+    serviqo: { chat: { origin: "https://serviqo.live", widgetKey: KEY } },
+  });
+
+  it("tells the page where the chat comes from, and opens the security policy only that far", async () => {
+    const res = await request(chatApp).get("/api/store");
+    expect(res.body.chat).toEqual({ scriptUrl: "https://serviqo.live/widget.js", widgetKey: KEY });
+    const csp = policy(res.headers["content-security-policy"]);
+    expect(csp["script-src"]).toBe("'self' https://serviqo.live");
+    expect(csp["connect-src"]).toBe("'self' https://serviqo.live wss://serviqo.live");
+    expect(csp["img-src"]).toBe("'self' data: https://serviqo.live https://res.cloudinary.com");
+  });
+
+  it("is off, with the strict policy, until it is set up", async () => {
+    const res = await request(appWithoutServiqo).get("/api/store");
+    expect(res.body.chat).toBeNull();
+    const csp = policy(res.headers["content-security-policy"]);
+    expect(csp["script-src"]).toBe("'self'");
+    expect(csp["connect-src"]).toBe("'self'");
+  });
+
+  it("checks its settings: a bare https address and a Serviqo widget key", () => {
+    const env = loadEnv({ ...base, SERVIQO_URL: "https://serviqo.live/", SERVIQO_WIDGET_KEY: KEY });
+    expect(env.SERVIQO_URL).toBe("https://serviqo.live");
+    expect(loadEnv({ ...base, SERVIQO_URL: "", SERVIQO_WIDGET_KEY: "" }).SERVIQO_WIDGET_KEY).toBeUndefined();
+    expect(() => loadEnv({ ...base, SERVIQO_URL: "http://serviqo.live" })).toThrow(/https/);
+    expect(() => loadEnv({ ...base, SERVIQO_URL: "https://serviqo.live/widget.js" })).toThrow(/no path/);
+    expect(() => loadEnv({ ...base, SERVIQO_URL: "https://serviqo.live", SERVIQO_WIDGET_KEY: "abc" })).toThrow(/wk_/);
+    expect(() => loadEnv({ ...base, SERVIQO_WIDGET_KEY: KEY })).toThrow(/SERVIQO_URL/);
+  });
+});
