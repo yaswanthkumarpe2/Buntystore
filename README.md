@@ -62,7 +62,14 @@ npm run lint && npm run typecheck && npm test && npm run build
 
 ## Deploy
 
-One service on any Node 22 host. Build command `npm install && npm run build`, start command `npm start`, health check
+**Live setup:** Bunty runs on the AWS instance it shares with Serviqo, behind the same Cloudflare Tunnel (Serviqo's
+ADR-061). A push to `main` runs CI (`.github/workflows/ci.yml`); when it passes, `deploy.yml` builds the release,
+uploads it and switches the server over, rolling back if `/health` fails. AWS access is by OpenID Connect: no AWS key
+or other secret is stored in this repository. Settings live in AWS Parameter Store; fill `.env.production` (never
+committed) and run `npm run aws:settings -- --dry-run`, then `npm run aws:settings`, to check and upload them without
+printing them.
+
+**Any other Node 22 host:** build command `npm install && npm run build`, start command `npm start`, health check
 `/health`. Set these variables on the host:
 
 | Variable | Value |
