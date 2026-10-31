@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 /** Calls the store's API; a failure throws an ApiError carrying the server's plain-words message. */
 export class ApiError extends Error {
   constructor(
@@ -26,6 +28,57 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     throw new ApiError(res.status, data?.error?.code ?? "ERROR", data?.error?.message ?? "Something went wrong. Please try again.");
   }
   return data as T;
+}
+
+// ---------------------------------------------------------------- remembered reads
+
+/**
+ * Pages read the catalogue through this: what was already read shows at once
+ * (so Back and a second visit are instant), and anything older than a minute
+ * is read again quietly in the background. Two reads of the same address at
+ * the same moment share one request.
+ */
+const remembered = new Map<string, { at: number; data: unknown }>();
+const reading = new Map<string, Promise<unknown>>();
+const FRESH_MS = 60_000;
+
+export function readRemembered<T>(path: string): Promise<T> {
+  const pending = reading.get(path);
+  if (pending) return pending as Promise<T>;
+  const request = api<T>(path)
+    .then((data) => {
+      remembered.set(path, { at: Date.now(), data });
+      return data;
+    })
+    .finally(() => reading.delete(path));
+  reading.set(path, request);
+  return request;
+}
+
+/** Starts reading a page's data before it is opened (on hover or touch), so it is there when it is. */
+export function prefetch(path: string): void {
+  const hit = remembered.get(path);
+  if (hit && Date.now() - hit.at < FRESH_MS) return;
+  readRemembered(path).catch(() => undefined);
+}
+
+/** A remembered read for a page: the data as soon as it is known, and a plain-words error if it fails. */
+export function useRemembered<T>(path: string): { data: T | null; error: string | null } {
+  const [result, setResult] = useState<{ path: string; data?: T; error?: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const hit = remembered.get(path);
+    if (hit && Date.now() - hit.at < FRESH_MS) return;
+    readRemembered<T>(path)
+      .then((data) => live && setResult({ path, data }))
+      .catch((e: unknown) => live && setResult({ path, error: e instanceof ApiError ? e.message : "Something went wrong." }));
+    return () => {
+      live = false;
+    };
+  }, [path]);
+  const current = result?.path === path ? result : null;
+  const known = current?.data ?? (remembered.get(path)?.data as T | undefined);
+  return { data: known ?? null, error: known === undefined ? (current?.error ?? null) : null };
 }
 
 // ---------------------------------------------------------------- shapes

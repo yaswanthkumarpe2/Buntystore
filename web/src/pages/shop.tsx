@@ -1,24 +1,37 @@
 import { useEffect, useState, type InputHTMLAttributes, type ReactNode } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
-import { api, ApiError, day, money, type Address, type Order, type Product } from "../api";
+import { api, ApiError, day, money, useRemembered, type Address, type Order, type Product } from "../api";
+import { Link, productTransition, useNav } from "../nav";
 import { useStore } from "../state";
-import { Alert, Button, Card, Empty, Price, ProductCard, Spinner, Tile } from "../ui";
+import { Alert, Button, Card, Empty, ListSkeleton, Price, ProductCard, ProductGridSkeleton, Tile } from "../ui";
 
-/** Products for a query; a result is kept with the query it answers, so a new query never shows the old one. */
+/** Products for a query, remembered: a second visit (or Back) shows them at once. */
 function useProducts(query: string) {
-  const [result, setResult] = useState<{ query: string; products?: Product[]; error?: string } | null>(null);
-  useEffect(() => {
-    let live = true;
-    api<{ products: Product[] }>(`/products${query}`)
-      .then((r) => live && setResult({ query, products: r.products }))
-      .catch((e: ApiError) => live && setResult({ query, error: e.message }));
-    return () => {
-      live = false;
-    };
-  }, [query]);
-  const current = result?.query === query ? result : null;
-  return { products: current?.products ?? null, error: current?.error ?? null };
+  const { data, error } = useRemembered<{ products: Product[] }>(`/products${query}`);
+  return { products: data?.products ?? null, error };
+}
+
+/** Grey shapes in the place of the product page while it loads. */
+function ProductPageSkeleton() {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 md:gap-10" aria-busy="true" aria-label="Loading product">
+      <div className="skeleton aspect-square w-full !rounded-[var(--radius-card)]" />
+      <div className="space-y-3">
+        <div className="skeleton h-8 w-4/5" />
+        <div className="skeleton h-8 w-2/5" />
+        <div className="skeleton mt-6 h-10 w-1/3" />
+        <div className="skeleton h-4 w-full" />
+        <div className="skeleton h-4 w-11/12" />
+        <div className="skeleton h-4 w-3/4" />
+        <div className="skeleton mt-6 h-28 w-full" />
+        <div className="flex gap-3 pt-2">
+          <div className="skeleton h-11 w-32 !rounded-full" />
+          <div className="skeleton h-11 w-28 !rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Grid({ products }: { products: Product[] }) {
@@ -73,7 +86,7 @@ export function HomePage() {
           <h2 id="deals" className="text-xl font-bold">Today's best deals</h2>
           <Link to="/search?q=" className="text-sm font-semibold text-brand hover:underline">See all</Link>
         </div>
-        {products ? <Grid products={deals} /> : <Spinner />}
+        {products ? <Grid products={deals} /> : <ProductGridSkeleton count={4} />}
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Why shop here">
@@ -134,7 +147,7 @@ export function ListingPage({ mode }: { mode: "category" | "search" }) {
         </label>
       </div>
       {error && <Alert>{error}</Alert>}
-      {!products && !error && <Spinner />}
+      {!products && !error && <ProductGridSkeleton />}
       {products && products.length === 0 && (
         <Empty emoji="🔎" title="No products found">Try a different word, or browse a category above.</Empty>
       )}
@@ -153,19 +166,15 @@ export function ProductPage() {
 
 function ProductView({ slug }: { slug: string }) {
   const { user, setQty, cart, notify, policy } = useStore();
-  const nav = useNavigate();
-  const [data, setData] = useState<{ product: Product; related: Product[] } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const nav = useNav();
+  // remembered, and usually already read when the card was hovered or touched
+  const { data, error } = useRemembered<{ product: Product; related: Product[] }>(`/products/${slug}`);
   const [qty, setQ] = useState(1);
   const [busy, setBusy] = useState(false);
   const [openedAt] = useState(() => Date.now());
 
-  useEffect(() => {
-    api<{ product: Product; related: Product[] }>(`/products/${slug}`).then(setData).catch((e: ApiError) => setError(e.message));
-  }, [slug]);
-
   if (error) return <Empty emoji="🤷" title="Product not found"><Link to="/" className="text-brand underline">Back to the store</Link></Empty>;
-  if (!data) return <Spinner />;
+  if (!data) return <ProductPageSkeleton />;
   const p = data.product;
   const inCart = cart?.lines.find((l) => l.product.slug === p.slug)?.qty ?? 0;
   const by = new Date(openedAt + p.deliveryDays * 24 * 60 * 60 * 1000);
@@ -190,7 +199,7 @@ function ProductView({ slug }: { slug: string }) {
   return (
     <div className="space-y-10">
       <div className="grid gap-6 md:grid-cols-2 md:gap-10">
-        <Tile emoji={p.emoji} hue={p.hue} size="lg" />
+        <Tile emoji={p.emoji} hue={p.hue} size="lg" transitionName={productTransition(p.slug)} />
         <div>
           <h1 className="text-2xl font-bold leading-snug sm:text-3xl">{p.name}</h1>
           <div className="mt-4"><Price p={p} big /></div>
@@ -236,10 +245,10 @@ function ProductView({ slug }: { slug: string }) {
 
 export function CartPage() {
   const { ready, user, cart, setQty, notify, policy } = useStore();
-  const nav = useNavigate();
-  if (!ready) return <Spinner />;
+  const nav = useNav();
+  if (!ready) return <ListSkeleton rows={2} />;
   if (!user) return <Empty emoji="🛒" title="Sign in to see your cart"><Link to="/signin?next=/cart"><Button className="mt-2">Sign in</Button></Link></Empty>;
-  if (!cart) return <Spinner />;
+  if (!cart) return <ListSkeleton rows={2} />;
   if (cart.lines.length === 0)
     return <Empty emoji="🛒" title="Your cart is empty">Find something you like on the <Link to="/" className="text-brand underline">home page</Link>.</Empty>;
   const toFree = (policy?.freeDeliveryFrom ?? 499) - cart.subtotal;
@@ -341,14 +350,14 @@ export function AddressForm({ initial, onSaved, submitLabel }: { initial: Addres
 
 export function CheckoutPage() {
   const { ready, user, cart, setUser, refreshCart } = useStore();
-  const nav = useNavigate();
+  const nav = useNav();
   // the form shows while editing, or whenever there is no saved address yet
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  if (!ready) return <Spinner />;
+  if (!ready) return <ListSkeleton rows={2} />;
   if (!user) return <Empty emoji="🔐" title="Please sign in to check out"><Link to="/signin?next=/checkout"><Button className="mt-2">Sign in</Button></Link></Empty>;
-  if (!cart) return <Spinner />;
+  if (!cart) return <ListSkeleton rows={2} />;
   if (cart.lines.length === 0) return <Empty emoji="🛒" title="Your cart is empty"><Link to="/" className="text-brand underline">Keep shopping</Link></Empty>;
 
   async function place() {

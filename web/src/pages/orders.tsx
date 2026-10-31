@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { api, ApiError, dateTime, day, money, type Order, type User } from "../api";
 import { useStore } from "../state";
-import { Alert, Button, Card, Empty, Modal, Spinner, StatusChip, Tile, Tracker } from "../ui";
+import { Link, useNav } from "../nav";
+import { Alert, Button, Card, Empty, ListSkeleton, Modal, StatusChip, Tile, Tracker } from "../ui";
 import { AddressForm } from "./shop";
 import { SecurityCard } from "./signin";
 
@@ -25,10 +26,10 @@ export function OrdersPage() {
     if (!user) return;
     api<{ orders: Order[] }>("/orders").then((r) => setOrders(r.orders)).catch((e: ApiError) => setError(e.message));
   }, [user]);
-  if (!ready) return <Spinner />;
+  if (!ready) return <ListSkeleton />;
   if (!user) return <SignInFirst next="/orders" />;
   if (error) return <Alert>{error}</Alert>;
-  if (!orders) return <Spinner />;
+  if (!orders) return <ListSkeleton />;
   if (orders.length === 0) return <Empty emoji="📦" title="No orders yet">When you place an order, it will show here.</Empty>;
   return (
     <div>
@@ -83,10 +84,10 @@ export function OrderDetailPage() {
     if (user) load();
   }, [user, load]);
 
-  if (!ready) return <Spinner />;
+  if (!ready) return <ListSkeleton />;
   if (!user) return <SignInFirst next={`/orders/${number}`} />;
   if (error) return <Empty emoji="🤷" title="Order not found"><Link to="/orders" className="text-brand underline">See your orders</Link></Empty>;
-  if (!order) return <Spinner />;
+  if (!order) return <ListSkeleton />;
 
   const times = Object.fromEntries(order.timeline.map((e) => [e.status, e.at]));
 
@@ -334,7 +335,7 @@ export function ForgotPasswordPage() {
 
 export function ResetPasswordPage() {
   const { setUser, refreshCart, notify } = useStore();
-  const nav = useNavigate();
+  const nav = useNav();
   // the token travels in the #fragment, which browsers never send to a server: read it once, then clear it
   const [token] = useState(() => window.location.hash.slice(1));
   useEffect(() => {
@@ -401,7 +402,7 @@ export function ResetPasswordPage() {
 
 export function AccountPage() {
   const { ready, user, setUser, notify } = useStore();
-  if (!ready) return <Spinner />;
+  if (!ready) return <ListSkeleton />;
   if (!user) return <SignInFirst next="/account" />;
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -458,7 +459,7 @@ export function AdminPage() {
   useEffect(() => {
     if (user?.role === "admin") load();
   }, [user, load]);
-  if (!ready) return <Spinner />;
+  if (!ready) return <ListSkeleton />;
   if (!user) return <SignInFirst next="/admin" />;
   if (user.role !== "admin") return <Empty emoji="🚫" title="Only the store team can open this page" />;
 
@@ -486,7 +487,7 @@ export function AdminPage() {
         ))}
       </div>
       {error && <Alert>{error}</Alert>}
-      {!orders ? <Spinner /> : orders.length === 0 ? <Empty emoji="📭" title="No orders here" /> : (
+      {!orders ? <ListSkeleton /> : orders.length === 0 ? <Empty emoji="📭" title="No orders here" /> : (
         <ul className="space-y-3">
           {orders.map((o) => (
             <li key={o.number}>

@@ -1,6 +1,6 @@
-import { StrictMode, useEffect } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from "react-router-dom";
 
 import {
   AccountPage,
@@ -17,47 +17,44 @@ import { Empty, Layout } from "./ui";
 
 import "./styles.css";
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    // braces matter: newer browsers make scrollTo return a promise, and an effect may only return a clean-up
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
-}
-
-function App() {
+/** Every page shares the header and footer; Back returns to where you were scrolled, a new page starts at the top. */
+function Shell() {
   return (
-    <Layout>
-      <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/c/:category" element={<ListingPage mode="category" />} />
-        <Route path="/search" element={<ListingPage mode="search" />} />
-        <Route path="/p/:slug" element={<ProductPage />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/order-placed/:number" element={<OrderPlacedPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/orders/:number" element={<OrderDetailPage />} />
-        <Route path="/signin" element={<AuthPage mode="signin" />} />
-        <Route path="/signup" element={<AuthPage mode="signup" />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/account" element={<AccountPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="*" element={<Empty emoji="🧭" title="Page not found">This page does not exist.</Empty>} />
-      </Routes>
-    </Layout>
+    <StoreProvider>
+      <Layout>
+        <ScrollRestoration />
+        <Outlet />
+      </Layout>
+    </StoreProvider>
   );
 }
 
+const router = createBrowserRouter([
+  {
+    element: <Shell />,
+    children: [
+      { path: "/", element: <HomePage /> },
+      { path: "/c/:category", element: <ListingPage mode="category" /> },
+      { path: "/search", element: <ListingPage mode="search" /> },
+      { path: "/p/:slug", element: <ProductPage /> },
+      { path: "/cart", element: <CartPage /> },
+      { path: "/checkout", element: <CheckoutPage /> },
+      { path: "/order-placed/:number", element: <OrderPlacedPage /> },
+      { path: "/orders", element: <OrdersPage /> },
+      { path: "/orders/:number", element: <OrderDetailPage /> },
+      { path: "/signin", element: <AuthPage mode="signin" /> },
+      { path: "/signup", element: <AuthPage mode="signup" /> },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
+      { path: "/account", element: <AccountPage /> },
+      { path: "/admin", element: <AdminPage /> },
+      { path: "*", element: <Empty emoji="🧭" title="Page not found">This page does not exist.</Empty> },
+    ],
+  },
+]);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <StoreProvider>
-        <App />
-      </StoreProvider>
-    </BrowserRouter>
+    <RouterProvider router={router} />
   </StrictMode>,
 );

@@ -16,7 +16,8 @@ interface StoreState {
   /** True when "Continue with Google" is set up. */
   googleSignIn: boolean;
   cart: Cart | null;
-  toast: string | null;
+  /** The message at the bottom of the screen; `leaving` while it fades out. */
+  toast: { id: number; text: string; leaving: boolean } | null;
   signIn: (email: string, password: string) => Promise<void>;
   /** Emails a sign-in code; answers how many seconds until another can be sent. */
   sendCode: (email: string) => Promise<number>;
@@ -40,11 +41,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [emailSignIn, setEmailSignIn] = useState(false);
   const [googleSignIn, setGoogleSignIn] = useState(false);
   const [cart, setCart] = useState<Cart | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: number; text: string; leaving: boolean } | null>(null);
 
   const notify = useCallback((message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast((t) => (t === message ? null : t)), 2600);
+    const id = Date.now() + Math.random();
+    setToast({ id, text: message, leaving: false });
+    // slides in, stays a moment, fades out, then goes
+    window.setTimeout(() => setToast((t) => (t?.id === id ? { ...t, leaving: true } : t)), 2400);
+    window.setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 2600);
   }, []);
 
   const refreshCart = useCallback(async () => {

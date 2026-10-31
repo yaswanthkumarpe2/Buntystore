@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { api, ApiError, type User } from "../api";
 import { useStore } from "../state";
 import { BuntyLogo } from "../logo";
+import { Link, useNav } from "../nav";
 import { Alert, Button, Card } from "../ui";
 
 const field =
@@ -39,7 +40,7 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
   const { user, ready, emailSignIn, googleSignIn, passwordReset, signIn, sendCode, verifyCode, notify } = useStore();
   const [params] = useSearchParams();
   const next = params.get("next")?.startsWith("/") && !params.get("next")!.startsWith("//") ? params.get("next")! : "/";
-  const nav = useNavigate();
+  const nav = useNav();
 
   const [chosen, setStep] = useState<Step>("email");
   // without email the only ways in are a password and Google

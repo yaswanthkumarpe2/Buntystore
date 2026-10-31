@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
-import { money, percentOff, type Product } from "./api";
-import { BuntyLogo, BuntyMark } from "./logo";
+import { money, percentOff, prefetch, type Product } from "./api";
+import { BuntyLogo } from "./logo";
+import { Link, NavLink, productTransition, useNav } from "./nav";
 import { useStore } from "./state";
 
 // ---------------------------------------------------------------- small pieces
@@ -21,15 +22,28 @@ export function Button({
   return (
     <button
       {...props}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-semibold transition duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 ${styles} ${className}`}
     />
   );
 }
 
-export function Tile({ emoji, hue, size = "md", className = "" }: { emoji: string; hue: number; size?: "sm" | "md" | "lg"; className?: string }) {
+export function Tile({
+  emoji,
+  hue,
+  size = "md",
+  className = "",
+  transitionName,
+}: {
+  emoji: string;
+  hue: number;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+  /** Lets the picture glide to the same picture on the next page. */
+  transitionName?: string;
+}) {
   const s = { sm: "h-14 w-14 text-3xl", md: "aspect-square w-full text-6xl", lg: "aspect-square w-full text-[9rem]" }[size];
   return (
-    <div className={`tile ${s} ${className}`} style={{ ["--h" as string]: hue }} aria-hidden="true">
+    <div className={`tile ${s} ${className}`} style={{ ["--h" as string]: hue, viewTransitionName: transitionName }} aria-hidden="true">
       <span className="drop-shadow-sm">{emoji}</span>
     </div>
   );
@@ -58,6 +72,40 @@ export function Price({ p, big = false }: { p: { price: number; mrp: number }; b
         </>
       )}
     </span>
+  );
+}
+
+/** Grey shapes in the place of product cards while they load. */
+export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-busy="true" aria-label="Loading products">
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className="rounded-[var(--radius-card)] border border-line bg-surface p-3">
+          <div className="skeleton aspect-square w-full" />
+          <div className="skeleton mt-3 h-4 w-4/5" />
+          <div className="skeleton mt-2 h-4 w-2/5" />
+          <div className="skeleton mt-3 h-5 w-1/2" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Grey shapes in the place of a list of rows (orders, cart lines) while they load. */
+export function ListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-4">
+          <div className="skeleton h-14 w-14 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="skeleton h-4 w-1/3" />
+            <div className="skeleton h-4 w-2/3" />
+          </div>
+          <div className="skeleton h-6 w-20" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -127,10 +175,14 @@ export function ProductCard({ p }: { p: Product }) {
   return (
     <Link
       to={`/p/${p.slug}`}
-      className="group flex flex-col rounded-[var(--radius-card)] border border-line bg-surface p-3 transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-[0_8px_24px_-12px_rgba(27,27,47,0.25)]"
+      // the product starts loading as soon as a finger or pointer is on its way
+      onPointerEnter={() => prefetch(`/products/${p.slug}`)}
+      onTouchStart={() => prefetch(`/products/${p.slug}`)}
+      onFocus={() => prefetch(`/products/${p.slug}`)}
+      className="group flex flex-col rounded-[var(--radius-card)] border border-line bg-surface p-3 transition duration-200 hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-[0_8px_24px_-12px_rgba(27,27,47,0.25)] active:scale-[0.98]"
     >
       <div className="relative">
-        <Tile emoji={p.emoji} hue={p.hue} />
+        <Tile emoji={p.emoji} hue={p.hue} transitionName={productTransition(p.slug)} />
         {percentOff(p) >= 30 && (
           <span className="absolute left-2 top-2 rounded-full bg-sun px-2 py-0.5 text-xs font-bold text-ink">Deal</span>
         )}
@@ -196,7 +248,7 @@ export function StatusChip({ status, label }: { status: string; label: string })
 function SearchBox({ className = "" }: { className?: string }) {
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
-  const nav = useNavigate();
+  const nav = useNav();
   return (
     <form
       role="search"
@@ -224,22 +276,39 @@ function SearchBox({ className = "" }: { className?: string }) {
 export function Layout({ children }: { children: ReactNode }) {
   const { user, cart, categories, toast, signOut } = useStore();
   const [menu, setMenu] = useState(false);
-  const nav = useNavigate();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const nav = useNav();
+
+  // the account menu closes on a tap outside it, or Escape
+  useEffect(() => {
+    if (!menu) return;
+    const outside = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [menu]);
   return (
     <div className="flex min-h-dvh flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:p-3">
         Skip to content
       </a>
-      <header className="border-b border-line bg-surface text-ink">
+      <header className="site-header border-b border-line bg-surface text-ink">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
           <Link to="/" className="flex shrink-0 items-center" aria-label="Bunty Store home">
-            <BuntyMark className="h-9 w-auto sm:hidden" />
-            <BuntyLogo className="hidden h-12 w-auto sm:block" />
+            <BuntyLogo className="h-10 w-auto sm:h-12" />
           </Link>
           <SearchBox className="ml-2 hidden flex-1 md:flex" />
           <nav className="ml-auto flex items-center gap-1 sm:gap-2" aria-label="Account">
             {user ? (
-              <div className="relative">
+              <div className="relative" ref={menuRef}>
                 <button
                   type="button"
                   className="rounded-full px-3 py-2 text-left text-sm leading-tight hover:bg-canvas"
@@ -250,7 +319,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <span className="font-semibold">Account ▾</span>
                 </button>
                 {menu && (
-                  <div className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-lg" onClick={() => setMenu(false)}>
+                  <div className="animate-menu absolute right-0 z-30 mt-2 w-48 origin-top-right overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-lg" onClick={() => setMenu(false)}>
                     <Link to="/orders" className="block px-4 py-3 hover:bg-canvas">Your orders</Link>
                     <Link to="/account" className="block px-4 py-3 hover:bg-canvas">Your address</Link>
                     {user.role === "admin" && <Link to="/admin" className="block px-4 py-3 hover:bg-canvas">Store team</Link>}
@@ -274,7 +343,8 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-2xl" aria-hidden="true">🛒</span>
               <span className="hidden sm:inline">Cart</span>
               {(cart?.count ?? 0) > 0 && (
-                <span className="absolute -top-0.5 left-7 grid h-5 min-w-5 place-items-center rounded-full bg-sun px-1 text-xs font-bold text-ink">{cart!.count}</span>
+                // a new count pops, so adding to the cart is felt as well as seen
+                <span key={cart!.count} className="animate-pop absolute -top-0.5 left-7 grid h-5 min-w-5 place-items-center rounded-full bg-sun px-1 text-xs font-bold text-ink">{cart!.count}</span>
               )}
             </Link>
           </nav>
@@ -308,8 +378,12 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </footer>
       {toast && (
-        <div role="status" className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white shadow-lg">
-          {toast}
+        <div
+          key={toast.id}
+          role="status"
+          className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white shadow-lg ${toast.leaving ? "animate-toast-out" : "animate-toast-in"}`}
+        >
+          {toast.text}
         </div>
       )}
     </div>
