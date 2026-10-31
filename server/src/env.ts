@@ -69,9 +69,23 @@ const schema = z
     ),
     /** The site's own address, for links in emails, e.g. https://bunty.me. */
     PUBLIC_URL: siteOrigin("PUBLIC_URL", "https://bunty.me"),
+    /** "Continue with Google": the OAuth client's ID and secret from Google Cloud. Unset: no Google button. */
+    GOOGLE_CLIENT_ID: z.preprocess(
+      blankIsUnset,
+      z
+        .string()
+        .regex(/^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/, "GOOGLE_CLIENT_ID must look like 1234-abc.apps.googleusercontent.com")
+        .optional(),
+    ),
+    GOOGLE_CLIENT_SECRET: z.preprocess(blankIsUnset, z.string().min(10, "GOOGLE_CLIENT_SECRET looks too short").max(200).optional()),
   })
   .refine((e) => !e.RESEND_API_KEY || e.EMAIL_FROM, { path: ["EMAIL_FROM"], message: "is needed with RESEND_API_KEY" })
   .refine((e) => !e.RESEND_API_KEY || e.PUBLIC_URL, { path: ["PUBLIC_URL"], message: "is needed with RESEND_API_KEY" })
+  .refine((e) => !e.GOOGLE_CLIENT_ID === !e.GOOGLE_CLIENT_SECRET, {
+    path: ["GOOGLE_CLIENT_SECRET"],
+    message: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET go together",
+  })
+  .refine((e) => !e.GOOGLE_CLIENT_ID || e.PUBLIC_URL, { path: ["PUBLIC_URL"], message: "is needed with GOOGLE_CLIENT_ID" })
   .refine((e) => !e.SERVIQO_WIDGET_KEY || e.SERVIQO_URL, {
     path: ["SERVIQO_URL"],
     message: "is needed with SERVIQO_WIDGET_KEY",

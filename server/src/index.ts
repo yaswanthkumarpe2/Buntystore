@@ -27,9 +27,16 @@ async function main() {
       env.RESEND_API_KEY && env.EMAIL_FROM && env.PUBLIC_URL
         ? { mailer: resendMailer({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }), siteUrl: env.PUBLIC_URL }
         : undefined,
+    google:
+      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.PUBLIC_URL
+        ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, siteUrl: env.PUBLIC_URL }
+        : undefined,
+    publicUrl: env.PUBLIC_URL,
   });
   app.listen(env.PORT, () =>
-    console.log(`Bunty Store listening on :${env.PORT} (email ${env.RESEND_API_KEY ? "on" : "off"})`),
+    console.log(
+      `Bunty Store listening on :${env.PORT} (email ${env.RESEND_API_KEY ? "on" : "off"}, Google sign-in ${env.GOOGLE_CLIENT_ID ? "on" : "off"})`,
+    ),
   );
 }
 

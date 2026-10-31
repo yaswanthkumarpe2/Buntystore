@@ -5,13 +5,13 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import {
   AccountPage,
   AdminPage,
-  AuthPage,
   ForgotPasswordPage,
   OrderDetailPage,
   OrdersPage,
   ResetPasswordPage,
 } from "./pages/orders";
 import { CartPage, CheckoutPage, HomePage, ListingPage, OrderPlacedPage, ProductPage } from "./pages/shop";
+import { AuthPage } from "./pages/signin";
 import { StoreProvider } from "./state";
 import { Empty, Layout } from "./ui";
 

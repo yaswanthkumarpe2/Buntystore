@@ -77,6 +77,10 @@ export interface User {
   email: string;
   role: "customer" | "admin";
   address: Address | null;
+  /** Whether the account can also sign in with a password. */
+  hasPassword: boolean;
+  /** Whether the account is joined to a Google account. */
+  google: boolean;
 }
 
 export interface Cart {

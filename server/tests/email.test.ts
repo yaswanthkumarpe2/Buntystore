@@ -15,6 +15,8 @@ import { CANCEL_REASONS, RETURN_REASONS } from "../src/policy";
 import { ensureCatalog } from "../src/seed/catalogSeed";
 import { signRequest } from "../src/serviqo";
 
+import { signedInCustomer } from "./helpers";
+
 const SITE = "https://bunty.test";
 const CONNECTOR_SECRET = "connector-secret-connector-secret-0123456789";
 
@@ -64,10 +66,7 @@ beforeEach(async () => {
 const ADDRESS = { name: "Priya Sharma", phone: "9876543210", line1: "Flat 12, Green Park", city: "Hyderabad", state: "Telangana", pincode: "500081" };
 
 async function customer(email = "priya@example.com", name = "Priya Sharma") {
-  const agent = request.agent(app);
-  const res = await agent.post("/api/auth/signup").send({ name, email, password: "a-good-password" });
-  expect(res.status).toBe(201);
-  return { agent, id: res.body.user.id as string };
+  return signedInCustomer(app, email, name);
 }
 
 async function admin() {
@@ -187,8 +186,7 @@ describe("order emails", () => {
   });
 
   it("sends nothing, and the order still goes through, when email is off", async () => {
-    const agent = request.agent(appWithoutEmail);
-    await agent.post("/api/auth/signup").send({ name: "Priya", email: "p@example.com", password: "a-good-password" }).expect(201);
+    const { agent } = await signedInCustomer(appWithoutEmail, "p@example.com");
     await agent.put("/api/me/address").send(ADDRESS).expect(200);
     await agent.put("/api/cart/orbit-smartwatch").send({ qty: 1 }).expect(200);
     await agent.post("/api/orders").expect(201);

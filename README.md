@@ -6,10 +6,14 @@ deliveries are simulated: nothing is charged and nothing is shipped.
 
 ## What it does
 
-- **Accounts** — sign up and sign in with email and password (argon2 hashes, an http-only session cookie, rate-limited).
-  Forgot password: a one-time link by email that works for 30 minutes; using it signs the account out everywhere else.
-- **Emails** — the customer hears when an order is placed, shipped, out for delivery, delivered or cancelled, and at each
-  step of a return. Every email says it comes from a demo store. Sent through Resend; off until `RESEND_API_KEY` is set.
+- **Accounts** — sign in or sign up with a 6-digit code by email (no password needed), or "Continue with Google"
+  (off until `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set). Every new account proves its email first. A
+  password is optional (argon2 hashes; easy ones are turned down). Codes and passwords are limited per address, and no
+  answer says whether an account exists. The session is an http-only cookie; Your account shows the ways to sign in,
+  adds or changes the password and signs out every other device. Forgot password: a one-time link by email, 30 minutes.
+- **Emails** — a welcome email for a new account; sign-in codes; and the customer hears when an order is placed,
+  shipped, out for delivery, delivered or cancelled, and at each step of a return. Every email says it comes from a
+  demo store. Sent through Resend; off until `RESEND_API_KEY` is set.
 - **Shop** — 60 products in Electronics, Fashion, Home & Kitchen, Books, Beauty and Grocery; search, sort, product pages.
 - **Cart and checkout** — delivery address, pay on delivery, free delivery from ₹499 (₹40 below).
 - **Orders** — every order has a number like `BS-7K2M9XQ4` and a timeline: Placed → Packed → Shipped → Out for delivery → Delivered.
@@ -84,6 +88,7 @@ printing them.
 | `RESEND_API_KEY` | optional: a Resend API key (`re_…`) allowed to send from your domain; turns email on |
 | `EMAIL_FROM` | with the key: the sender, e.g. `Bunty Store <orders@bunty.me>`, on a domain verified in Resend |
 | `PUBLIC_URL` | with the key: this site's address, e.g. `https://bunty.me`, for links in emails |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional: a Google OAuth client (Web application) whose redirect URI is `{PUBLIC_URL}/api/auth/google/callback`; turns on "Continue with Google" |
 
 The catalogue is added automatically on first start. To create the store-team account and demo customers, run
 `npm run seed` once with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` set.

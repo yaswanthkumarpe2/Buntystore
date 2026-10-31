@@ -1,6 +1,6 @@
-import { UserModel, type OrderDoc } from "./models";
+import { CATEGORIES, UserModel, type OrderDoc } from "./models";
 import { sendLater, type Mail, type Mailer } from "./mail";
-import { returnDeadline } from "./policy";
+import { FREE_DELIVERY_FROM, RETURN_WINDOW_DAYS, returnDeadline } from "./policy";
 
 /** Email is on when a mailer is set up; links in emails point at the site's public address. */
 export interface EmailSetup {
@@ -71,7 +71,11 @@ interface Letter {
   paragraphs: string[];
   /** The order's items and total, when the email is about an order. */
   order?: OrderDoc;
+  /** A sign-in code, shown large so it is easy to read and copy. */
+  code?: string;
   button?: { label: string; url: string };
+  /** Links to the shop's categories, under the button. */
+  links?: { label: string; url: string }[];
   idempotencyKey?: string;
 }
 
@@ -82,9 +86,11 @@ function compose(to: string, l: Letter): Mail {
   const text = [
     l.greeting,
     "",
+    ...(l.code ? [`Your code: ${l.code}`, ""] : []),
     ...l.paragraphs.flatMap((p) => [p, ""]),
     ...(l.order ? [`Order ${l.order.number}`, ...textItems, `Total: ${money(l.order.total)}`, ""] : []),
     ...(l.button ? [`${l.button.label}: ${l.button.url}`, ""] : []),
+    ...(l.links ? [...l.links.map((k) => `${k.label}: ${k.url}`), ""] : []),
     "Bunty Store",
     "",
     DEMO_NOTE,
@@ -109,6 +115,14 @@ function compose(to: string, l: Letter): Mail {
   const button = l.button
     ? `<p style="margin:4px 0 20px"><a href="${escapeHtml(l.button.url)}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:${C.brand};color:${C.surface};font-size:15px;font-weight:700;text-decoration:none">${escapeHtml(l.button.label)}</a></p>`
     : "";
+  const code = l.code
+    ? `<p style="margin:2px 0 18px"><span style="display:inline-block;padding:12px 18px;border-radius:12px;background:${C.canvas};border:1px solid ${C.line};font-family:Consolas,Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:${C.ink}">${escapeHtml(l.code)}</span></p>`
+    : "";
+  const links = l.links
+    ? `<p style="margin:0 0 6px;font-size:14px;line-height:2;color:${C.ink2}">` +
+      l.links.map((k) => `<a href="${escapeHtml(k.url)}" style="color:${C.brand};font-weight:600;text-decoration:none">${escapeHtml(k.label)}</a>`).join(" &nbsp;·&nbsp; ") +
+      `</p>`
+    : "";
 
   const html =
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
@@ -120,9 +134,11 @@ function compose(to: string, l: Letter): Mail {
     `<tr><td style="padding:0 0 14px;font-size:20px;font-weight:800;color:${C.brand}">bunty<span style="color:${C.ink}">store</span></td></tr>` +
     `<tr><td style="padding:24px;border:1px solid ${C.line};border-radius:12px;background:${C.surface}">` +
     `<p style="margin:0 0 14px;font-size:17px;font-weight:700;color:${C.ink}">${escapeHtml(l.greeting)}</p>` +
+    code +
     l.paragraphs.map(p).join("") +
     orderTable +
     button +
+    links +
     `</td></tr>` +
     `<tr><td style="padding:14px 4px 0;font-size:12px;line-height:1.5;color:${C.ink3}">` +
     `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:${C.sun50};color:${C.ink2}">Demo store</span> ` +
@@ -281,6 +297,57 @@ export function passwordChangedMail(customer: { name: string; email: string }, s
     paragraphs: [
       "Your password was just changed, and every other device was signed out.",
       "If this was not you, reset your password again now and tell us through the chat on our website.",
+    ],
+    button: { label: "Go to Bunty Store", url: siteUrl },
+  });
+}
+
+// ---------------------------------------------------------------- sign-in emails
+
+export const CODE_MINUTES = 10;
+
+/** The 6-digit code for signing in (or, for a new address, creating the account). */
+export function signInCodeMail(to: string, code: string, newAccount: boolean): Mail {
+  return compose(to, {
+    subject: `${code} is your Bunty Store code`,
+    preview: `It works for ${CODE_MINUTES} minutes.`,
+    greeting: newAccount ? "Welcome to Bunty Store!" : "Hi there,",
+    code,
+    paragraphs: [
+      newAccount
+        ? `Enter this code on Bunty Store to create your account. It works for ${CODE_MINUTES} minutes.`
+        : `Enter this code on Bunty Store to sign in. It works for ${CODE_MINUTES} minutes.`,
+      "Never share it: Bunty Store will never ask you for this code by phone, chat or email.",
+      "If you did not ask for it, ignore this email. Nobody can sign in without the code.",
+    ],
+  });
+}
+
+/** Sent once, when an account is created: what the store has and where to start. */
+export function welcomeMail(customer: { name: string; email: string }, siteUrl: string): Mail {
+  return compose(customer.email, {
+    subject: "Welcome to Bunty Store",
+    preview: "60 products across six categories, pay on delivery.",
+    greeting: `Hi ${firstName(customer.name)}, welcome!`,
+    paragraphs: [
+      "Your Bunty Store account is ready. Have a look around: phones and headphones, clothes, things for the home, books, beauty and groceries.",
+      `Pay on delivery, free delivery from ${money(FREE_DELIVERY_FROM)}, and returns within ${RETURN_WINDOW_DAYS} days of delivery (except groceries). Your orders and returns are always under Your orders.`,
+    ],
+    button: { label: "Start exploring", url: siteUrl },
+    links: CATEGORIES.map((c) => ({ label: c.name, url: `${siteUrl}/c/${c.id}` })),
+    idempotencyKey: `welcome:${customer.email}`,
+  });
+}
+
+/** Sent when a password is added to an account that had none. */
+export function passwordAddedMail(customer: { name: string; email: string }, siteUrl: string): Mail {
+  return compose(customer.email, {
+    subject: "A password was added to your Bunty Store account",
+    preview: "You can now also sign in with a password.",
+    greeting: `Hi ${firstName(customer.name)},`,
+    paragraphs: [
+      "A password was just added to your account, so you can now sign in with it as well as with an email code. Every other device was signed out.",
+      "If this was not you, sign in with an email code, change the password under Your account, and tell us through the chat on our website.",
     ],
     button: { label: "Go to Bunty Store", url: siteUrl },
   });

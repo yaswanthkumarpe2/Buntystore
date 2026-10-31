@@ -4,7 +4,7 @@ import { Router, type Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
-import { dummyVerify, hashPassword, requireAdmin, requireUser, verifyPassword, type createSessions } from "./auth";
+import { hashPassword, requireAdmin, requireUser, type createSessions } from "./auth";
 import { HttpError, notFound, parse } from "./errors";
 import {
   RESET_MINUTES,
@@ -43,6 +43,7 @@ import {
   deliveryFee,
 } from "./policy";
 import { issueIdentityToken, type ServiqoChat } from "./serviqo";
+import { checkNewPassword, publicUser, signinRouter, type GoogleSetup } from "./signin";
 
 type Sessions = ReturnType<typeof createSessions>;
 
@@ -103,6 +104,10 @@ export function apiRouter(
     chat?: ServiqoChat;
     /** Email (order updates and password reset); off when unset. */
     email?: EmailSetup;
+    /** "Continue with Google"; off when unset. */
+    google?: GoogleSetup;
+    /** Keys the sign-in codes and the Google sign-in cookie. */
+    sessionSecret: string;
     notify: OrderNotifier;
   },
 ): Router {
@@ -132,33 +137,16 @@ export function apiRouter(
       },
       // the Serviqo chat, when it is set up: the page loads widget.js with this key
       chat: opts.chat ? { scriptUrl: `${opts.chat.origin}/widget.js`, widgetKey: opts.chat.widgetKey } : null,
-      // "Forgot password?" needs email, so the page offers it only when email is on
+      // "Forgot password?" and email codes need email, so the page offers them only when email is on
       passwordReset: Boolean(opts.email),
+      emailSignIn: Boolean(opts.email),
+      googleSignIn: Boolean(opts.google),
     });
   });
 
   // ---------------------------------------------------------------- account
 
-  r.post("/auth/signup", authLimiter, async (req, res) => {
-    const body = parse(
-      z.object({ name: z.string().trim().min(2, "Enter your name").max(100), email, password }),
-      req.body,
-    );
-    const exists = await UserModel.exists({ email: body.email });
-    if (exists) throw new HttpError(409, "EMAIL_TAKEN", "An account with this email already exists. Please sign in.");
-    const user = await UserModel.create({ name: body.name, email: body.email, passwordHash: await hashPassword(body.password) });
-    await sessions.issue(res, { id: user._id.toString(), role: "customer" }, user.sessionVersion);
-    res.status(201).json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: null } });
-  });
-
-  r.post("/auth/login", authLimiter, async (req, res) => {
-    const body = parse(z.object({ email, password: z.string().min(1, "Enter your password").max(200) }), req.body);
-    const user = await UserModel.findOne({ email: body.email });
-    const ok = user ? await verifyPassword(user.passwordHash, body.password) : await dummyVerify(body.password);
-    if (!user || !ok) throw new HttpError(401, "WRONG_DETAILS", "Email or password is not correct.");
-    await sessions.issue(res, { id: user._id.toString(), role: user.role as "customer" | "admin" }, user.sessionVersion);
-    res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: user.address } });
-  });
+  r.use(signinRouter(sessions, { sessionSecret: opts.sessionSecret, limiter: authLimiter, email: opts.email, google: opts.google }));
 
   /**
    * Sends a reset link if an account uses that email. The answer is the same
@@ -192,7 +180,11 @@ export function apiRouter(
     const setup = opts.email;
     if (!setup) throw new HttpError(404, "NOT_AVAILABLE", "Password reset by email is not set up on this store.");
     const body = parse(z.object({ token: z.string().min(20).max(100), password }), req.body);
-    const link = await PasswordResetModel.findOneAndDelete({ tokenHash: sha256(body.token), expiresAt: { $gt: new Date() } });
+    const pending = await PasswordResetModel.findOne({ tokenHash: sha256(body.token), expiresAt: { $gt: new Date() } }).lean();
+    const owner = pending ? await UserModel.findById(pending.userId, { email: 1 }).lean() : null;
+    // a weak password is turned down before the link is used up, so it can be tried again
+    if (owner) checkNewPassword(body.password, owner.email);
+    const link = pending ? await PasswordResetModel.findOneAndDelete({ _id: pending._id, expiresAt: { $gt: new Date() } }) : null;
     if (!link) {
       throw new HttpError(400, "RESET_LINK_INVALID", "This link has expired or was already used. Please ask for a new one.");
     }
@@ -205,7 +197,7 @@ export function apiRouter(
     await PasswordResetModel.deleteMany({ userId: user._id });
     sendLater(setup.mailer, passwordChangedMail(user, setup.siteUrl), "password changed");
     await sessions.issue(res, { id: user._id.toString(), role: user.role as "customer" | "admin" }, user.sessionVersion);
-    res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: user.address } });
+    res.json({ user: publicUser(user) });
   });
 
   r.post("/auth/logout", (_req, res) => {
@@ -218,7 +210,7 @@ export function apiRouter(
     if (!user) {
       throw new HttpError(401, "SIGN_IN_REQUIRED", "Please sign in to continue.");
     }
-    res.json({ user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, address: user.address } });
+    res.json({ user: publicUser(user) });
   });
 
   /** The signed-in customer's short-lived pass for the Serviqo chat (Serviqo ADR-060). */

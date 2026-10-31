@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, ApiError, dateTime, day, money, type Order, type User } from "../api";
 import { useStore } from "../state";
 import { Alert, Button, Card, Empty, Modal, Spinner, StatusChip, Tile, Tracker } from "../ui";
 import { AddressForm } from "./shop";
+import { SecurityCard } from "./signin";
 
 function SignInFirst({ next }: { next: string }) {
   return (
@@ -276,73 +277,6 @@ function ReasonDialog({
 
 // ---------------------------------------------------------------- sign in / sign up / account
 
-export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
-  const { user, signIn, signUp, passwordReset } = useStore();
-  const [params] = useSearchParams();
-  const next = params.get("next")?.startsWith("/") ? params.get("next")! : "/";
-  const nav = useNavigate();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (user) nav(next, { replace: true });
-  }, [user, next, nav]);
-  const input = "h-12 w-full rounded-xl border border-line bg-surface px-3 text-[15px] focus:border-brand";
-  return (
-    <div className="mx-auto max-w-sm py-6">
-      <Card className="!p-6">
-        <h1 className="text-2xl font-bold">{mode === "signin" ? "Sign in" : "Create your account"}</h1>
-        <p className="mt-1 text-sm text-ink-2">{mode === "signin" ? "Welcome back to Bunty Store." : "It takes less than a minute."}</p>
-        <form
-          className="mt-5 space-y-3"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError(null);
-            try {
-              if (mode === "signin") await signIn(email, password);
-              else await signUp(name, email, password);
-            } catch (err) {
-              setError((err as ApiError).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {mode === "signup" && (
-            <label className="block"><span className="mb-1 block text-sm font-semibold">Your name</span>
-              <input required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={input} />
-            </label>
-          )}
-          <label className="block"><span className="mb-1 block text-sm font-semibold">Email</span>
-            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" className={input} />
-          </label>
-          <label className="block"><span className="mb-1 block text-sm font-semibold">Password</span>
-            <input required type="password" minLength={mode === "signup" ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} className={input} />
-            {mode === "signup" && <span className="mt-1 block text-xs text-ink-3">At least 8 characters.</span>}
-          </label>
-          {mode === "signin" && passwordReset && (
-            <p className="text-right text-sm">
-              <Link to="/forgot-password" className="font-semibold text-brand hover:underline">Forgot password?</Link>
-            </p>
-          )}
-          {error && <Alert>{error}</Alert>}
-          <Button type="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}</Button>
-        </form>
-        <p className="mt-5 text-center text-sm text-ink-2">
-          {mode === "signin" ? (
-            <>New here? <Link to={`/signup?next=${encodeURIComponent(next)}`} className="font-semibold text-brand hover:underline">Create an account</Link></>
-          ) : (
-            <>Already have an account? <Link to={`/signin?next=${encodeURIComponent(next)}`} className="font-semibold text-brand hover:underline">Sign in</Link></>
-          )}
-        </p>
-      </Card>
-    </div>
-  );
-}
-
 const authInput = "h-12 w-full rounded-xl border border-line bg-surface px-3 text-[15px] focus:border-brand";
 
 export function ForgotPasswordPage() {
@@ -487,6 +421,7 @@ export function AccountPage() {
           }}
         />
       </Card>
+      <SecurityCard user={user} onUser={setUser} />
     </div>
   );
 }

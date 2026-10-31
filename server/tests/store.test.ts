@@ -8,6 +8,8 @@ import { hashPassword } from "../src/auth";
 import { OrderModel, ProductModel, UserModel } from "../src/models";
 import { ensureCatalog } from "../src/seed/catalogSeed";
 
+import { signedInCustomer } from "./helpers";
+
 let mongo: MongoMemoryServer;
 const app = createApp({ sessionSecret: "test-secret-test-secret-test-secret-123", production: false, authLimit: 1000 });
 
@@ -32,10 +34,7 @@ beforeEach(async () => {
 const ADDRESS = { name: "Priya Sharma", phone: "9876543210", line1: "Flat 12, Green Park", city: "Hyderabad", state: "Telangana", pincode: "500081" };
 
 async function customer(email = "priya@example.com") {
-  const agent = request.agent(app);
-  const res = await agent.post("/api/auth/signup").send({ name: "Priya", email, password: "a-good-password" });
-  expect(res.status).toBe(201);
-  return agent;
+  return (await signedInCustomer(app, email)).agent;
 }
 
 async function admin() {
@@ -54,19 +53,13 @@ async function orderOf(agent: ReturnType<typeof request.agent>, slug: string, qt
 }
 
 describe("accounts", () => {
-  it("signs up, stays signed in with a cookie, and signs out", async () => {
+  it("signs in, stays signed in with a cookie, and signs out", async () => {
     const agent = await customer();
     const me = await agent.get("/api/me");
     expect(me.body.user.email).toBe("priya@example.com");
     expect(JSON.stringify(me.body)).not.toContain("passwordHash");
     await agent.post("/api/auth/logout").expect(200);
     expect((await agent.get("/api/me")).status).toBe(401);
-  });
-
-  it("refuses a second account for the same email", async () => {
-    await customer();
-    const res = await request(app).post("/api/auth/signup").send({ name: "Other", email: "PRIYA@example.com", password: "another-password" });
-    expect(res.status).toBe(409);
   });
 
   it("gives the same answer for a wrong password and an unknown email", async () => {
@@ -78,9 +71,9 @@ describe("accounts", () => {
   });
 
   it("explains a bad input in plain words", async () => {
-    const res = await request(app).post("/api/auth/signup").send({ name: "P", email: "not-an-email", password: "short" });
+    const res = await request(app).post("/api/auth/login").send({ email: "not-an-email", password: "x" });
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/name|email|characters/i);
+    expect(res.body.error.message).toMatch(/email/i);
   });
 });
 

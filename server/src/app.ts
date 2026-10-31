@@ -9,6 +9,7 @@ import { orderNotifier, type EmailSetup } from "./emails";
 import { errorHandler } from "./errors";
 import { apiRouter } from "./routes";
 import { serviqoRouter, type ServiqoChat } from "./serviqo";
+import type { GoogleSetup } from "./signin";
 
 export interface AppOptions {
   sessionSecret: string;
@@ -19,8 +20,28 @@ export interface AppOptions {
   webDist?: string;
   /** Serviqo's connector and identity secrets and its chat; each part is off until it is set. */
   serviqo?: { connectorSecret?: string; identitySecret?: string; chat?: ServiqoChat };
-  /** Email for order updates and password reset; off when unset. */
+  /** Email for order updates, sign-in codes and password reset; off when unset. */
   email?: EmailSetup;
+  /** "Continue with Google"; off when unset. */
+  google?: GoogleSetup;
+  /** The site's own address (e.g. https://bunty.me): changes may only come from pages on it. */
+  publicUrl?: string;
+}
+
+/**
+ * A second guard next to the SameSite cookie: a browser always says which site
+ * a request comes from, and a change (anything but GET) from another site is
+ * turned away. Requests without an Origin (not from a browser) pass.
+ */
+function sameSiteOnly(publicUrl: string | undefined, production: boolean): express.RequestHandler {
+  return (req, res, next) => {
+    const origin = req.headers.origin;
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS" || !origin) return next();
+    const local = !production && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    const self = origin === publicUrl || origin === `${req.protocol}://${req.get("host")}`;
+    if (local || self) return next();
+    res.status(403).json({ error: { code: "WRONG_SITE", message: "This request did not come from Bunty Store." } });
+  };
 }
 
 /** The security policy opens only as far as the chat needs: its script, its API and live updates, and logos. */
@@ -56,8 +77,11 @@ export function createApp(opts: AppOptions) {
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.use(
     "/api",
+    sameSiteOnly(opts.publicUrl, opts.production),
     sessions.read,
     apiRouter(sessions, {
+      sessionSecret: opts.sessionSecret,
+      google: opts.google,
       authLimit: opts.authLimit ?? 20,
       identitySecret: opts.serviqo?.identitySecret,
       chat: opts.serviqo?.chat,

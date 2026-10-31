@@ -38,18 +38,54 @@ const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: true },
+    /** Optional: accounts made with an email code or Google have none until the customer adds one. */
+    passwordHash: { type: String, default: null },
+    /** Google's id for the account ("sub"), once the customer has continued with Google. */
+    googleId: { type: String, default: null },
+    /** When the customer proved the email is theirs (an email code, or Google's verified address). */
+    emailVerifiedAt: { type: Date, default: null },
     role: { type: String, enum: ["customer", "admin"], default: "customer" },
     address: { type: addressSchema, default: null },
     cart: { type: [cartLineSchema], default: [] },
-    /** Part of every session; raising it (on a password reset) signs the account out everywhere. */
+    /** Part of every session; raising it (a reset, a new password, "sign out everywhere") ends the other sessions. */
     sessionVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
+userSchema.index({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $type: "string" } } });
 
 export const UserModel = model("User", userSchema);
 export type UserDoc = InferSchemaType<typeof userSchema> & { _id: Types.ObjectId };
+
+/**
+ * The sign-in code last emailed to an address (one row per address). Only a
+ * keyed hash of the code is kept; it works for a few minutes and a few wrong
+ * tries. The row lives for an hour so the sending limit holds across codes.
+ */
+const loginCodeSchema = new Schema({
+  email: { type: String, required: true, unique: true },
+  codeHash: { type: String, default: null },
+  codeExpiresAt: { type: Date, default: null },
+  wrongTries: { type: Number, default: 0 },
+  lastSentAt: { type: Date, required: true },
+  sentThisHour: { type: Number, default: 0 },
+  purgeAt: { type: Date, required: true, index: { expires: 0 } },
+});
+
+export const LoginCodeModel = model("LoginCode", loginCodeSchema);
+
+/**
+ * Wrong passwords per email address, kept for addresses with and without an
+ * account alike, so the slow-down never tells anyone whether an account exists.
+ */
+const loginThrottleSchema = new Schema({
+  email: { type: String, required: true, unique: true },
+  failures: { type: Number, default: 0 },
+  lockedUntil: { type: Date, default: null },
+  purgeAt: { type: Date, required: true, index: { expires: 0 } },
+});
+
+export const LoginThrottleModel = model("LoginThrottle", loginThrottleSchema);
 
 /**
  * A password reset link that has not been used yet. Only the SHA-256 of the

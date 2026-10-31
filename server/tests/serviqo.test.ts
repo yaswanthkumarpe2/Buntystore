@@ -12,6 +12,8 @@ import { ConnectorActionModel, ConnectorNonceModel, OrderModel, ProductModel, Us
 import { ensureCatalog } from "../src/seed/catalogSeed";
 import { IDENTITY_MINUTES, signRequest } from "../src/serviqo";
 
+import { signedInCustomer } from "./helpers";
+
 const CONNECTOR_SECRET = "connector-secret-connector-secret-0123456789";
 const IDENTITY_SECRET = "identity-secret-identity-secret-0123456789ab";
 
@@ -77,10 +79,7 @@ function signed(method: "GET" | "POST", path: string, o: SignOptions = {}) {
 const ADDRESS = { name: "Priya Sharma", phone: "9876543210", line1: "Flat 12, Green Park", city: "Hyderabad", state: "Telangana", pincode: "500081" };
 
 async function customer(email = "priya@example.com") {
-  const agent = request.agent(app);
-  const res = await agent.post("/api/auth/signup").send({ name: "Priya", email, password: "a-good-password" });
-  expect(res.status).toBe(201);
-  return { agent, id: res.body.user.id as string };
+  return signedInCustomer(app, email, "Priya");
 }
 
 async function orderOf(agent: ReturnType<typeof request.agent>, slug = "orbit-smartwatch") {
@@ -347,8 +346,7 @@ describe("the pass for the Serviqo chat", () => {
   });
 
   it("is off without an identity secret", async () => {
-    const agent = request.agent(appWithoutServiqo);
-    await agent.post("/api/auth/signup").send({ name: "Priya", email: "p2@example.com", password: "a-good-password" }).expect(201);
+    const { agent } = await signedInCustomer(appWithoutServiqo, "p2@example.com", "Priya");
     expect((await agent.get("/api/me/serviqo-identity")).status).toBe(404);
   });
 

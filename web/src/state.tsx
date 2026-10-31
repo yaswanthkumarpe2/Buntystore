@@ -11,10 +11,17 @@ interface StoreState {
   policy: Policy | null;
   /** True when the store can email a password reset link. */
   passwordReset: boolean;
+  /** True when the store can email sign-in codes. */
+  emailSignIn: boolean;
+  /** True when "Continue with Google" is set up. */
+  googleSignIn: boolean;
   cart: Cart | null;
   toast: string | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  /** Emails a sign-in code; answers how many seconds until another can be sent. */
+  sendCode: (email: string) => Promise<number>;
+  /** Checks the code; "name" means it was right but a new account needs a name first. */
+  verifyCode: (email: string, code: string, name?: string) => Promise<"signed-in" | "name">;
   signOut: () => Promise<void>;
   setUser: (u: User) => void;
   refreshCart: () => Promise<void>;
@@ -30,6 +37,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [passwordReset, setPasswordReset] = useState(false);
+  const [emailSignIn, setEmailSignIn] = useState(false);
+  const [googleSignIn, setGoogleSignIn] = useState(false);
   const [cart, setCart] = useState<Cart | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -47,11 +56,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    api<{ categories: Category[]; policy: Policy; chat: ChatSetup | null; passwordReset: boolean }>("/store")
+    api<{ categories: Category[]; policy: Policy; chat: ChatSetup | null; passwordReset: boolean; emailSignIn: boolean; googleSignIn: boolean }>(
+      "/store",
+    )
       .then((s) => {
         setCategories(s.categories);
         setPolicy(s.policy);
         setPasswordReset(s.passwordReset);
+        setEmailSignIn(s.emailSignIn);
+        setGoogleSignIn(s.googleSignIn);
         loadServiqoChat(s.chat);
       })
       .catch(() => undefined);
@@ -73,11 +86,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [refreshCart],
   );
 
-  const signUp = useCallback(
-    async (name: string, email: string, password: string) => {
-      const r = await api<{ user: User }>("/auth/signup", { method: "POST", body: { name, email, password } });
+  const sendCode = useCallback(async (email: string) => {
+    const r = await api<{ resendIn: number }>("/auth/code", { method: "POST", body: { email } });
+    return r.resendIn;
+  }, []);
+
+  const verifyCode = useCallback(
+    async (email: string, code: string, name?: string): Promise<"signed-in" | "name"> => {
+      const r = await api<{ user?: User; needsName?: boolean }>("/auth/code/verify", { method: "POST", body: { email, code, name } });
+      if (r.needsName || !r.user) return "name";
       setUser(r.user);
       await refreshCart();
+      return "signed-in";
     },
     [refreshCart],
   );
@@ -97,8 +117,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, categories, policy, passwordReset, cart, toast, signIn, signUp, signOut, setUser, refreshCart, setQty, notify }),
-    [user, ready, categories, policy, passwordReset, cart, toast, signIn, signUp, signOut, refreshCart, setQty, notify],
+    () => ({
+      user,
+      ready,
+      categories,
+      policy,
+      passwordReset,
+      emailSignIn,
+      googleSignIn,
+      cart,
+      toast,
+      signIn,
+      sendCode,
+      verifyCode,
+      signOut,
+      setUser,
+      refreshCart,
+      setQty,
+      notify,
+    }),
+    [user, ready, categories, policy, passwordReset, emailSignIn, googleSignIn, cart, toast, signIn, sendCode, verifyCode, signOut, refreshCart, setQty, notify],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
