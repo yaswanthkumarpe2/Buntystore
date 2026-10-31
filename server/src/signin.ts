@@ -134,7 +134,7 @@ export function signinRouter(
       { upsert: true },
     );
     const exists = await UserModel.exists({ email: body.email });
-    sendLater(setup.mailer, signInCodeMail(body.email, c, !exists), "sign-in code");
+    sendLater(setup.mailer, signInCodeMail(body.email, c, !exists, setup.siteUrl), "sign-in code");
     res.json({ ok: true, resendIn: RESEND_SECONDS });
   });
 

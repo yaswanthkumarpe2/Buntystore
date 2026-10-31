@@ -4,12 +4,17 @@
 @theme {
   --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  --color-brand: #5b3df5;
-  --color-brand-dark: #4327d9;
-  --color-brand-50: #f1eeff;
-  --color-brand-100: #e2dcff;
-  --color-sun: #ffc233;
-  --color-sun-50: #fff6dc;
+  /* The logo's two colours: navy for the letters, orange for the speed lines and the cart. */
+  --color-navy: #1f2235;
+  --color-orange: #f25c1f;
+
+  /* Navy leads (buttons, links, the home banner); orange is the accent (search, cart count, deals). */
+  --color-brand: #1f2235;
+  --color-brand-dark: #12141f;
+  --color-brand-50: #eef0f6;
+  --color-brand-100: #d9dce8;
+  --color-sun: #f25c1f;
+  --color-sun-50: #fff1ea;
   --color-ink: #1b1b2f;
   --color-ink-2: #4b4b63;
   --color-ink-3: #6b6b80;

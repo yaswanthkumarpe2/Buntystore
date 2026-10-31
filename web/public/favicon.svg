@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 6 146 108">
+  <!-- Bunty's short logo: the B with its speed lines (web/src/logo.tsx, BuntyMark) -->
+  <g stroke="#f25c1f" stroke-width="9" stroke-linecap="round">
+    <line x1="26" y1="38" x2="54" y2="38"/><line x1="10" y1="60" x2="54" y2="60"/><line x1="26" y1="82" x2="54" y2="82"/>
+  </g>
+  <path d="M76 14 V106 M76 14 H113 a22 22 0 0 1 0 44 H76 M76 58 H117 a24 24 0 0 1 0 48 H76" fill="none" stroke="#1f2235" stroke-width="13"/>
+</svg>

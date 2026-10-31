@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, ApiError, type User } from "../api";
 import { useStore } from "../state";
+import { BuntyLogo } from "../logo";
 import { Alert, Button, Card } from "../ui";
 
 const field =
@@ -113,6 +114,9 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
 
   return (
     <div className="mx-auto max-w-md py-4 sm:py-8">
+      <Link to="/" className="mb-5 flex justify-center" aria-label="Bunty Store home">
+        <BuntyLogo className="h-16 w-auto" />
+      </Link>
       <Card className="!p-6 sm:!p-8">
         <div key={step} className="animate-rise">
           <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>

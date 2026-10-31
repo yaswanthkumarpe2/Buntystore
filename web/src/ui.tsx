@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode 
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 
 import { money, percentOff, type Product } from "./api";
+import { BuntyLogo, BuntyMark } from "./logo";
 import { useStore } from "./state";
 
 // ---------------------------------------------------------------- small pieces
@@ -199,7 +200,7 @@ function SearchBox({ className = "" }: { className?: string }) {
   return (
     <form
       role="search"
-      className={`flex h-11 overflow-hidden rounded-full bg-surface ring-1 ring-white/30 ${className}`}
+      className={`flex h-11 overflow-hidden rounded-full bg-surface ring-1 ring-line transition focus-within:ring-2 focus-within:ring-brand ${className}`}
       onSubmit={(e) => {
         e.preventDefault();
         if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`);
@@ -213,7 +214,7 @@ function SearchBox({ className = "" }: { className?: string }) {
         placeholder="Search phones, shoes, books…"
         className="min-w-0 flex-1 px-4 text-[15px] text-ink outline-none placeholder:text-ink-3"
       />
-      <button type="submit" className="bg-sun px-4 font-semibold text-ink" aria-label="Search">
+      <button type="submit" className="bg-sun px-4 font-semibold text-ink transition hover:brightness-95" aria-label="Search">
         🔍
       </button>
     </form>
@@ -229,11 +230,11 @@ export function Layout({ children }: { children: ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:p-3">
         Skip to content
       </a>
-      <header className="bg-brand text-white">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <Link to="/" className="flex shrink-0 items-center gap-2" aria-label="Bunty Store home">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-sun text-xl font-black text-ink">B</span>
-            <span className="text-xl font-extrabold tracking-tight">bunty<span className="text-sun">store</span></span>
+      <header className="border-b border-line bg-surface text-ink">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
+          <Link to="/" className="flex shrink-0 items-center" aria-label="Bunty Store home">
+            <BuntyMark className="h-9 w-auto sm:hidden" />
+            <BuntyLogo className="hidden h-12 w-auto sm:block" />
           </Link>
           <SearchBox className="ml-2 hidden flex-1 md:flex" />
           <nav className="ml-auto flex items-center gap-1 sm:gap-2" aria-label="Account">
@@ -241,11 +242,11 @@ export function Layout({ children }: { children: ReactNode }) {
               <div className="relative">
                 <button
                   type="button"
-                  className="rounded-full px-3 py-2 text-left text-sm leading-tight hover:bg-white/10"
+                  className="rounded-full px-3 py-2 text-left text-sm leading-tight hover:bg-canvas"
                   aria-expanded={menu}
                   onClick={() => setMenu((m) => !m)}
                 >
-                  <span className="block text-[11px] text-white/80">Hello, {user.name.split(" ")[0]}</span>
+                  <span className="block text-[11px] text-ink-3">Hello, {user.name.split(" ")[0]}</span>
                   <span className="font-semibold">Account ▾</span>
                 </button>
                 {menu && (
@@ -264,12 +265,12 @@ export function Layout({ children }: { children: ReactNode }) {
                 )}
               </div>
             ) : (
-              <Link to="/signin" className="rounded-full px-3 py-2 text-sm font-semibold hover:bg-white/10">Sign in</Link>
+              <Link to="/signin" className="rounded-full px-3 py-2 text-sm font-semibold hover:bg-canvas">Sign in</Link>
             )}
             {user && (
-              <Link to="/orders" className="hidden rounded-full px-3 py-2 text-sm font-semibold hover:bg-white/10 sm:block">Orders</Link>
+              <Link to="/orders" className="hidden rounded-full px-3 py-2 text-sm font-semibold hover:bg-canvas sm:block">Orders</Link>
             )}
-            <Link to="/cart" className="relative flex items-center gap-1 rounded-full px-3 py-2 font-semibold hover:bg-white/10" aria-label={`Cart, ${cart?.count ?? 0} items`}>
+            <Link to="/cart" className="relative flex items-center gap-1 rounded-full px-3 py-2 font-semibold hover:bg-canvas" aria-label={`Cart, ${cart?.count ?? 0} items`}>
               <span className="text-2xl" aria-hidden="true">🛒</span>
               <span className="hidden sm:inline">Cart</span>
               {(cart?.count ?? 0) > 0 && (
@@ -298,8 +299,11 @@ export function Layout({ children }: { children: ReactNode }) {
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
       <footer className="border-t border-line bg-surface">
         {/* bottom room on phones so the round chat button never covers the last line */}
-        <div className="mx-auto grid max-w-6xl gap-2 px-4 pt-6 pb-24 text-sm text-ink-3 sm:flex sm:justify-between sm:pb-6">
-          <span>© Bunty Store</span>
+        <div className="mx-auto grid max-w-6xl gap-2 px-4 pt-6 pb-24 text-sm text-ink-3 sm:flex sm:items-center sm:justify-between sm:pb-6">
+          <span className="flex items-center gap-3">
+            <BuntyLogo className="h-9 w-auto" />
+            <span>© Bunty Store</span>
+          </span>
           <span>Pay on delivery · {7}-day returns · Free delivery over ₹499</span>
         </div>
       </footer>

@@ -50,7 +50,8 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] || "there";
 
 // Bunty's colours (web/src/styles.css), written out: email clients do not read CSS variables.
 const C = {
-  brand: "#5b3df5",
+  brand: "#1f2235",
+  orange: "#f25c1f",
   ink: "#1b1b2f",
   ink2: "#4b4b63",
   ink3: "#6b6b80",
@@ -85,7 +86,7 @@ interface Letter {
   paragraphs: string[];
   /** The order's items and total, when the email is about an order. */
   order?: OrderDoc;
-  /** Links each item to its product page. */
+  /** The site's address: the logo at the top comes from it, and each item links to its product page. */
   siteUrl?: string;
   /** A refund to show under the total, when the email is about one. */
   refund?: number;
@@ -176,6 +177,11 @@ function compose(to: string, l: Letter): Mail {
       `</p>`
     : "";
 
+  // the logo as a PNG (inboxes do not show SVG); its alt text reads as the logo when images are off
+  const logo = l.siteUrl
+    ? `<a href="${escapeHtml(l.siteUrl)}" style="text-decoration:none"><img src="${escapeHtml(`${l.siteUrl}/email-logo.png`)}" width="168" height="56" alt="BUNTY · Store · Fast delivery" style="display:block;border:0;outline:none;font-size:20px;font-weight:800;color:${C.brand}"></a>`
+    : `<span style="font-size:22px;font-weight:800;letter-spacing:1px;color:${C.brand}">B<span style="color:${C.orange}">U</span>NTY</span>`;
+
   const html =
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
     `<title>${escapeHtml(l.subject)}</title></head>` +
@@ -183,7 +189,7 @@ function compose(to: string, l: Letter): Mail {
     `<div style="display:none;max-height:0;overflow:hidden">${escapeHtml(l.preview)}</div>` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.canvas}"><tr><td align="center" style="padding:24px 12px">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">` +
-    `<tr><td style="padding:0 0 14px;font-size:20px;font-weight:800;color:${C.brand}">bunty<span style="color:${C.ink}">store</span></td></tr>` +
+    `<tr><td style="padding:0 0 14px">${logo}</td></tr>` +
     `<tr><td style="padding:24px;border:1px solid ${C.line};border-radius:12px;background:${C.surface}">` +
     `<p style="margin:0 0 14px;font-size:17px;font-weight:700;color:${C.ink}">${escapeHtml(l.greeting)}</p>` +
     code +
@@ -342,6 +348,7 @@ export function passwordResetMail(customer: { name: string; email: string }, lin
       `Someone asked to reset the password for your Bunty Store account. The link below works once, for ${RESET_MINUTES} minutes.`,
       "If it was not you, ignore this email: your password stays the same.",
     ],
+    siteUrl: new URL(link).origin,
     button: { label: "Choose a new password", url: link },
   });
 }
@@ -356,6 +363,7 @@ export function passwordChangedMail(customer: { name: string; email: string }, s
       "Your password was just changed, and every other device was signed out.",
       "If this was not you, reset your password again now and tell us through the chat on our website.",
     ],
+    siteUrl,
     button: { label: "Go to Bunty Store", url: siteUrl },
   });
 }
@@ -365,8 +373,9 @@ export function passwordChangedMail(customer: { name: string; email: string }, s
 export const CODE_MINUTES = 10;
 
 /** The 6-digit code for signing in (or, for a new address, creating the account). */
-export function signInCodeMail(to: string, code: string, newAccount: boolean): Mail {
+export function signInCodeMail(to: string, code: string, newAccount: boolean, siteUrl?: string): Mail {
   return compose(to, {
+    siteUrl,
     sender: "account",
     subject: `${code} is your Bunty Store code`,
     preview: `It works for ${CODE_MINUTES} minutes.`,
@@ -393,6 +402,7 @@ export function welcomeMail(customer: { name: string; email: string }, siteUrl: 
       "Your Bunty Store account is ready. Have a look around: phones and headphones, clothes, things for the home, books, beauty and groceries.",
       `Pay on delivery, free delivery from ${money(FREE_DELIVERY_FROM)}, and returns within ${RETURN_WINDOW_DAYS} days of delivery (except groceries). Your orders and returns are always under Your orders.`,
     ],
+    siteUrl,
     button: { label: "Start exploring", url: siteUrl },
     links: CATEGORIES.map((c) => ({ label: c.name, url: `${siteUrl}/c/${c.id}` })),
     idempotencyKey: `welcome:${customer.email}`,
@@ -410,6 +420,7 @@ export function passwordAddedMail(customer: { name: string; email: string }, sit
       "A password was just added to your account, so you can now sign in with it as well as with an email code. Every other device was signed out.",
       "If this was not you, sign in with an email code, change the password under Your account, and tell us through the chat on our website.",
     ],
+    siteUrl,
     button: { label: "Go to Bunty Store", url: siteUrl },
   });
 }
