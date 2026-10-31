@@ -136,7 +136,14 @@ export function apiRouter(
         returnReasons: RETURN_REASONS,
       },
       // the Serviqo chat, when it is set up: the page loads widget.js with this key
-      chat: opts.chat ? { scriptUrl: `${opts.chat.origin}/widget.js`, widgetKey: opts.chat.widgetKey } : null,
+      chat: opts.chat
+        ? {
+            scriptUrl: `${opts.chat.origin}/widget.js`,
+            widgetKey: opts.chat.widgetKey,
+            // where the chat asks who is signed in (only when the identity secret is set)
+            identityUrl: opts.identitySecret ? "/api/me/serviqo-identity" : null,
+          }
+        : null,
       // "Forgot password?" and email codes need email, so the page offers them only when email is on
       passwordReset: Boolean(opts.email),
       emailSignIn: Boolean(opts.email),

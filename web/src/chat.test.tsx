@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loadServiqoChat } from "./chat";
+import { loadServiqoChat, serviqoIdentityChanged } from "./chat";
 
 const KEY = "wk_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
 const tags = () => document.querySelectorAll("script[data-serviqo-widget-key]");
@@ -15,6 +15,22 @@ describe("the Serviqo chat", () => {
     const tag = tags()[0] as HTMLScriptElement;
     expect(tag.src).toBe("https://serviqo.live/widget.js");
     expect(tag.getAttribute("data-serviqo-widget-key")).toBe(KEY);
+  });
+
+  it("tells the chat where the identity pass is, but only a path on this site", () => {
+    loadServiqoChat({ scriptUrl: "https://serviqo.live/widget.js", widgetKey: KEY, identityUrl: "/api/me/serviqo-identity" });
+    expect(tags()[0]!.getAttribute("data-serviqo-identity-url")).toBe("/api/me/serviqo-identity");
+    tags().forEach((t) => t.remove());
+    loadServiqoChat({ scriptUrl: "https://serviqo.live/widget.js", widgetKey: KEY, identityUrl: "//evil.example/steal" });
+    expect(tags()[0]!.hasAttribute("data-serviqo-identity-url")).toBe(false);
+  });
+
+  it("announces a sign-in or sign-out to the chat", () => {
+    const heard = vi.fn();
+    window.addEventListener("serviqo:identity-changed", heard);
+    serviqoIdentityChanged();
+    window.removeEventListener("serviqo:identity-changed", heard);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 
   it("loads nothing when the chat is not set up", () => {

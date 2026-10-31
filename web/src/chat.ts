@@ -2,9 +2,13 @@
 export interface ChatSetup {
   scriptUrl: string;
   widgetKey: string;
+  /** A path on this site that gives the signed-in customer's pass for the chat; null when that is off. */
+  identityUrl?: string | null;
 }
 
 const MARK = "data-serviqo-widget-key";
+const IDENTITY = "data-serviqo-identity-url";
+const IDENTITY_CHANGED = "serviqo:identity-changed";
 
 /**
  * Puts the Serviqo chat on the page by loading its widget.js once, with Bunty's
@@ -26,6 +30,13 @@ export function loadServiqoChat(chat: ChatSetup | null, doc: Document = document
   tag.src = url.href;
   tag.async = true;
   tag.setAttribute(MARK, chat.widgetKey);
+  // only a path on this site: the chat fetches it with the customer's session cookie
+  if (chat.identityUrl?.startsWith("/") && !chat.identityUrl.startsWith("//")) tag.setAttribute(IDENTITY, chat.identityUrl);
   doc.body.appendChild(tag);
   return true;
+}
+
+/** Tells the chat that someone signed in or out, so it starts again as the right person. */
+export function serviqoIdentityChanged(win: Window = window): void {
+  win.dispatchEvent(new Event(IDENTITY_CHANGED));
 }

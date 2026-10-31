@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { api, ApiError, type Cart, type Category, type Policy, type User } from "./api";
-import { loadServiqoChat, type ChatSetup } from "./chat";
+import { loadServiqoChat, serviqoIdentityChanged, type ChatSetup } from "./chat";
 
 interface StoreState {
   user: User | null;
@@ -76,6 +76,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .catch(() => setUser(null))
       .finally(() => setReady(true));
   }, [refreshCart]);
+
+  // the chat follows whoever is signed in: a change after the first check starts it again
+  const chatUser = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!ready) return;
+    const id = user?.id ?? null;
+    if (chatUser.current !== undefined && chatUser.current !== id) serviqoIdentityChanged();
+    chatUser.current = id;
+  }, [ready, user?.id]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {

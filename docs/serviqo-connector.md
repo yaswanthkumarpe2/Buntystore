@@ -50,7 +50,7 @@ The reference implementation is `signRequest()` in `server/src/serviqo.ts`.
 | `GET /api/serviqo/customers/:customerId/orders?limit=5` | `orders`: the newest first, 1 to 20 (default 5) |
 | `GET /api/serviqo/customers/:customerId/orders/:number` | `order`: one order, only if it belongs to that customer (otherwise 404) |
 
-Each order has its number, status and label, items (name, quantity, price, returnable), amounts, payment method,
+Each order has its number, status and label, items (name, quantity, price, returnable, the product's emoji picture), amounts, payment method,
 expected and actual delivery dates, timeline, cancellation, return and refund status, and:
 
 - `canCancel` and `cancelBlockedReason`
@@ -90,6 +90,10 @@ an HS256 JWT signed with `SERVIQO_IDENTITY_SECRET`:
 | `iat`, `exp` | issued now, valid for 10 minutes |
 | `jti` | a random id |
 
-The page hands it to the Serviqo widget; Serviqo checks it with the same secret and links the chat to that customer.
+The page hands it to the Serviqo widget: the widget's `<script>` tag carries `data-serviqo-identity-url="/api/me/serviqo-identity"`
+(a path on this site only), and the widget fetches a fresh pass, with the customer's own cookie, each time a chat opens.
+When someone signs in or out, the page dispatches a `serviqo:identity-changed` event on `window` and the widget starts a
+new chat as the right person. Serviqo checks the pass with the same secret and links the chat to that customer; a chat
+linked to a customer is only ever reopened with a fresh pass, never by an old visitor token.
 Without a valid pass the assistant sees no account data. The two secrets must be different, and Bunty refuses to
 start if they are the same.

@@ -122,7 +122,7 @@ export function toConnectorOrderView(o: OrderDoc, now = new Date()) {
     placedAt: v.placedAt,
     status: v.status,
     statusLabel: v.statusLabel,
-    items: v.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, returnable: i.returnable })),
+    items: v.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, returnable: i.returnable, emoji: i.emoji })),
     subtotal: v.subtotal,
     deliveryFee: v.deliveryFee,
     total: v.total,

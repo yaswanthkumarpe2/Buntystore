@@ -389,9 +389,19 @@ describe("the Serviqo chat", () => {
     serviqo: { chat: { origin: "https://serviqo.live", widgetKey: KEY } },
   });
 
+  it("names the identity pass for the chat only when the identity secret is set", async () => {
+    const withIdentity = createApp({
+      sessionSecret: "test-secret-test-secret-test-secret-123",
+      production: false,
+      serviqo: { chat: { origin: "https://serviqo.live", widgetKey: KEY }, identitySecret: "identity-secret-identity-secret-0123456789" },
+    });
+    const res = await request(withIdentity).get("/api/store");
+    expect(res.body.chat.identityUrl).toBe("/api/me/serviqo-identity");
+  });
+
   it("tells the page where the chat comes from, and opens the security policy only that far", async () => {
     const res = await request(chatApp).get("/api/store");
-    expect(res.body.chat).toEqual({ scriptUrl: "https://serviqo.live/widget.js", widgetKey: KEY });
+    expect(res.body.chat).toEqual({ scriptUrl: "https://serviqo.live/widget.js", widgetKey: KEY, identityUrl: null });
     const csp = policy(res.headers["content-security-policy"]);
     expect(csp["script-src"]).toBe("'self' https://serviqo.live");
     expect(csp["connect-src"]).toBe("'self' https://serviqo.live wss://serviqo.live");
