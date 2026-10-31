@@ -1,5 +1,5 @@
 import { CATEGORIES, UserModel, type OrderDoc } from "./models";
-import { sendLater, type Mail, type Mailer } from "./mail";
+import { sendLater, type Mail, type Mailer, type Sender } from "./mail";
 import { FREE_DELIVERY_FROM, RETURN_WINDOW_DAYS, returnDeadline } from "./policy";
 
 /** Email is on when a mailer is set up; links in emails point at the site's public address. */
@@ -58,12 +58,26 @@ const C = {
   canvas: "#f6f6fa",
   surface: "#ffffff",
   sun50: "#fff6dc",
+  ok: "#127a4b",
 };
 
-/** Said in every email until Bunty really ships: an honest line, so nobody waits for a parcel. */
-const OPENING_NOTE = "Bunty Store is opening soon: orders placed now are not shipped yet, and nothing is charged.";
+/** The line under every email: what shopping at Bunty means, in one breath. */
+const FOOTER = `Pay on delivery · Free delivery from ${money(FREE_DELIVERY_FROM)} · ${RETURN_WINDOW_DAYS}-day returns`;
+const HELP = "Questions? Use the chat on our website and we'll help.";
+
+/** The product picture's tile colour, as hex: email clients do not all read hsl(). */
+function tileColour(hue: number): string {
+  const l = 0.92;
+  const s = 0.7;
+  const k = (n: number) => (n + hue / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return `#${[f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("")}`;
+}
 
 interface Letter {
+  /** Which Bunty address it comes from. */
+  sender: Sender;
   subject: string;
   /** Short line shown by inboxes next to the subject. */
   preview: string;
@@ -71,6 +85,12 @@ interface Letter {
   paragraphs: string[];
   /** The order's items and total, when the email is about an order. */
   order?: OrderDoc;
+  /** Links each item to its product page. */
+  siteUrl?: string;
+  /** A refund to show under the total, when the email is about one. */
+  refund?: number;
+  /** Says the total was never charged (a cancelled order). */
+  notCharged?: boolean;
   /** A sign-in code, shown large so it is easy to read and copy. */
   code?: string;
   button?: { label: string; url: string };
@@ -82,34 +102,66 @@ interface Letter {
 /** One layout for every email: plain text and a simple HTML version that reads well in any inbox. */
 function compose(to: string, l: Letter): Mail {
   const items = l.order?.items ?? [];
-  const textItems = items.map((i) => `- ${i.name} x ${i.qty}: ${money(i.price * i.qty)}`);
+  const textItems = items.map((i) => `- ${i.name}: ${i.qty} × ${money(i.price)} = ${money(i.price * i.qty)}`);
+  const delivery = l.order ? (l.order.deliveryFee === 0 ? "Free" : money(l.order.deliveryFee)) : "";
+  const totalLabel = l.notCharged ? "Total (not charged)" : "Total";
   const text = [
     l.greeting,
     "",
     ...(l.code ? [`Your code: ${l.code}`, ""] : []),
     ...l.paragraphs.flatMap((p) => [p, ""]),
-    ...(l.order ? [`Order ${l.order.number}`, ...textItems, `Total: ${money(l.order.total)}`, ""] : []),
+    ...(l.order
+      ? [
+          `Order ${l.order.number}`,
+          ...textItems,
+          `Subtotal: ${money(l.order.subtotal)}`,
+          `Delivery: ${delivery}`,
+          `${totalLabel}: ${money(l.order.total)}`,
+          ...(l.refund !== undefined ? [`Refund: ${money(l.refund)}`] : []),
+          "",
+        ]
+      : []),
     ...(l.button ? [`${l.button.label}: ${l.button.url}`, ""] : []),
     ...(l.links ? [...l.links.map((k) => `${k.label}: ${k.url}`), ""] : []),
     "Bunty Store",
-    "",
-    OPENING_NOTE,
+    FOOTER,
+    HELP,
   ].join("\n");
 
   const p = (s: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:${C.ink2}">${escapeHtml(s)}</p>`;
+  const cell = `border-top:1px solid ${C.line};font-size:14px;color:${C.ink}`;
   const rows = items
-    .map(
-      (i) =>
-        `<tr><td style="padding:8px 0;border-top:1px solid ${C.line};font-size:14px;color:${C.ink}">${escapeHtml(i.name)} × ${i.qty}</td>` +
-        `<td style="padding:8px 0;border-top:1px solid ${C.line};font-size:14px;color:${C.ink};text-align:right;white-space:nowrap">${money(i.price * i.qty)}</td></tr>`,
-    )
+    .map((i) => {
+      const name = l.siteUrl
+        ? `<a href="${escapeHtml(`${l.siteUrl}/p/${encodeURIComponent(i.slug)}`)}" style="color:${C.ink};font-weight:600;text-decoration:none">${escapeHtml(i.name)}</a>`
+        : `<span style="font-weight:600">${escapeHtml(i.name)}</span>`;
+      return (
+        `<tr><td width="60" style="padding:10px 12px 10px 0;${cell};vertical-align:top">` +
+        `<div style="width:48px;height:48px;border-radius:10px;background:${tileColour(i.hue)};text-align:center;line-height:48px;font-size:26px">${escapeHtml(i.emoji)}</div></td>` +
+        `<td style="padding:10px 0;${cell};vertical-align:top">${name}` +
+        `<div style="margin-top:3px;font-size:13px;color:${C.ink3}">Qty ${i.qty} · ${money(i.price)} each</div></td>` +
+        `<td style="padding:10px 0 10px 8px;${cell};text-align:right;white-space:nowrap;vertical-align:top;font-weight:600">${money(i.price * i.qty)}</td></tr>`
+      );
+    })
     .join("");
+  const sumRow = (label: string, value: string, strong = false) => {
+    const style = strong
+      ? `padding:10px 0 0;font-size:15px;font-weight:700;color:${C.ink};border-top:1px solid ${C.line}`
+      : `padding:6px 0 0;font-size:14px;color:${C.ink2}`;
+    return `<tr><td colspan="2" style="${style}">${escapeHtml(label)}</td><td style="${style};text-align:right;white-space:nowrap">${escapeHtml(value)}</td></tr>`;
+  };
   const orderTable = l.order
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 18px;border-collapse:collapse">` +
-      `<tr><td colspan="2" style="padding:0 0 6px;font-size:13px;font-weight:700;color:${C.ink3}">ORDER ${escapeHtml(l.order.number)}</td></tr>` +
+      `<tr><td colspan="3" style="padding:0 0 6px;font-size:13px;font-weight:700;letter-spacing:0.4px;color:${C.ink3}">ORDER ${escapeHtml(l.order.number)}</td></tr>` +
       rows +
-      `<tr><td style="padding:10px 0 0;border-top:1px solid ${C.line};font-size:15px;font-weight:700;color:${C.ink}">Total</td>` +
-      `<td style="padding:10px 0 0;border-top:1px solid ${C.line};font-size:15px;font-weight:700;color:${C.ink};text-align:right">${money(l.order.total)}</td></tr>` +
+      `<tr><td colspan="3" style="padding:4px 0 0;border-top:1px solid ${C.line}"></td></tr>` +
+      sumRow("Subtotal", money(l.order.subtotal)) +
+      sumRow("Delivery", delivery) +
+      sumRow(totalLabel, money(l.order.total), true) +
+      (l.refund !== undefined
+        ? `<tr><td colspan="2" style="padding:8px 0 0;font-size:15px;font-weight:700;color:${C.ok}">Refund</td>` +
+          `<td style="padding:8px 0 0;font-size:15px;font-weight:700;color:${C.ok};text-align:right;white-space:nowrap">${money(l.refund)}</td></tr>`
+        : "") +
       `</table>`
     : "";
   const button = l.button
@@ -141,11 +193,10 @@ function compose(to: string, l: Letter): Mail {
     links +
     `</td></tr>` +
     `<tr><td style="padding:14px 4px 0;font-size:12px;line-height:1.5;color:${C.ink3}">` +
-    `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:${C.sun50};color:${C.ink2}">Opening soon</span> ` +
-    `${escapeHtml(OPENING_NOTE)}</td></tr>` +
+    `${escapeHtml(FOOTER)}<br>${escapeHtml(HELP)}</td></tr>` +
     `</table></td></tr></table></body></html>`;
 
-  return { to, subject: l.subject, text, html, idempotencyKey: l.idempotencyKey };
+  return { sender: l.sender, to, subject: l.subject, text, html, idempotencyKey: l.idempotencyKey };
 }
 
 // ---------------------------------------------------------------- order emails
@@ -162,7 +213,8 @@ export function orderMail(
   const view = { label: "View your order", url: `${siteUrl}/orders/${encodeURIComponent(n)}` };
   const key = `${n}:${event}`;
   const refund = order.refund?.amount ?? order.total;
-  const base = { greeting: hi, order, button: view, idempotencyKey: key };
+  const base = { greeting: hi, order, siteUrl, button: view, idempotencyKey: key, sender: "orders" as Sender };
+  const returns = { ...base, sender: "returns" as Sender };
 
   switch (event) {
     case "placed":
@@ -201,6 +253,7 @@ export function orderMail(
     case "cancelled":
       return compose(customer.email, {
         ...base,
+        notCharged: true,
         subject: `Order ${n} cancelled`,
         preview: "Nothing was charged.",
         paragraphs: [
@@ -210,7 +263,7 @@ export function orderMail(
       });
     case "return_requested":
       return compose(customer.email, {
-        ...base,
+        ...returns,
         subject: `Return requested for ${n}`,
         preview: "We will let you know when it is approved.",
         paragraphs: [
@@ -220,14 +273,15 @@ export function orderMail(
       });
     case "return_approved":
       return compose(customer.email, {
-        ...base,
+        ...returns,
         subject: `Return approved for ${n}`,
         preview: "We will pick up the items soon.",
         paragraphs: ["Your return was approved. We will pick up the items soon. Please keep them packed and ready."],
       });
     case "return_picked_up":
       return compose(customer.email, {
-        ...base,
+        ...returns,
+        refund,
         subject: `Return picked up for ${n}`,
         preview: `Your refund of ${money(refund)} is on its way.`,
         paragraphs: [`We picked up your return. Your refund of ${money(refund)} is on its way.`],
@@ -235,6 +289,8 @@ export function orderMail(
     case "return_refunded":
       return compose(customer.email, {
         ...base,
+        sender: "refunds",
+        refund,
         subject: `Refund complete for ${n}`,
         preview: `${money(refund)} refunded.`,
         paragraphs: [`Your refund of ${money(refund)} is complete.`],
@@ -242,7 +298,7 @@ export function orderMail(
     case "return_rejected": {
       const note = order.return?.timeline.at(-1)?.note;
       return compose(customer.email, {
-        ...base,
+        ...returns,
         subject: `Return declined for ${n}`,
         preview: "We could not accept this return.",
         paragraphs: [
@@ -278,6 +334,7 @@ export const RESET_MINUTES = 30;
 
 export function passwordResetMail(customer: { name: string; email: string }, link: string): Mail {
   return compose(customer.email, {
+    sender: "account",
     subject: "Reset your Bunty Store password",
     preview: `This link works for ${RESET_MINUTES} minutes.`,
     greeting: `Hi ${firstName(customer.name)},`,
@@ -291,6 +348,7 @@ export function passwordResetMail(customer: { name: string; email: string }, lin
 
 export function passwordChangedMail(customer: { name: string; email: string }, siteUrl: string): Mail {
   return compose(customer.email, {
+    sender: "account",
     subject: "Your Bunty Store password was changed",
     preview: "You were signed out everywhere else.",
     greeting: `Hi ${firstName(customer.name)},`,
@@ -309,6 +367,7 @@ export const CODE_MINUTES = 10;
 /** The 6-digit code for signing in (or, for a new address, creating the account). */
 export function signInCodeMail(to: string, code: string, newAccount: boolean): Mail {
   return compose(to, {
+    sender: "account",
     subject: `${code} is your Bunty Store code`,
     preview: `It works for ${CODE_MINUTES} minutes.`,
     greeting: newAccount ? "Welcome to Bunty Store!" : "Hi there,",
@@ -326,6 +385,7 @@ export function signInCodeMail(to: string, code: string, newAccount: boolean): M
 /** Sent once, when an account is created: what the store has and where to start. */
 export function welcomeMail(customer: { name: string; email: string }, siteUrl: string): Mail {
   return compose(customer.email, {
+    sender: "hello",
     subject: "Welcome to Bunty Store",
     preview: "60 products across six categories, pay on delivery.",
     greeting: `Hi ${firstName(customer.name)}, welcome!`,
@@ -342,6 +402,7 @@ export function welcomeMail(customer: { name: string; email: string }, siteUrl: 
 /** Sent when a password is added to an account that had none. */
 export function passwordAddedMail(customer: { name: string; email: string }, siteUrl: string): Mail {
   return compose(customer.email, {
+    sender: "account",
     subject: "A password was added to your Bunty Store account",
     preview: "You can now also sign in with a password.",
     greeting: `Hi ${firstName(customer.name)},`,

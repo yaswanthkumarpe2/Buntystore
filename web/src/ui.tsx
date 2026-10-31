@@ -229,9 +229,6 @@ export function Layout({ children }: { children: ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:p-3">
         Skip to content
       </a>
-      <div className="bg-sun-50 px-4 py-1.5 text-center text-xs text-ink-2">
-        <strong>Opening soon.</strong> Orders placed now are not shipped yet, and nothing is charged.
-      </div>
       <header className="bg-brand text-white">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <Link to="/" className="flex shrink-0 items-center gap-2" aria-label="Bunty Store home">

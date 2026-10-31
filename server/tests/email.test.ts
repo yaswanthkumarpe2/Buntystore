@@ -9,7 +9,7 @@ import { createApp } from "../src/app";
 import { hashPassword } from "../src/auth";
 import { orderMail } from "../src/emails";
 import { loadEnv } from "../src/env";
-import { resendMailer, type Mail, type Mailer } from "../src/mail";
+import { resendMailer, senderAddress, type Mail, type Mailer } from "../src/mail";
 import { ConnectorNonceModel, OrderModel, PasswordResetModel, ProductModel, UserModel, type OrderDoc } from "../src/models";
 import { CANCEL_REASONS, RETURN_REASONS } from "../src/policy";
 import { ensureCatalog } from "../src/seed/catalogSeed";
@@ -96,7 +96,7 @@ const tokenFrom = (mail: Mail) => mail.text.match(/reset-password#([A-Za-z0-9_-]
 // ---------------------------------------------------------------- order emails
 
 describe("order emails", () => {
-  it("tells the customer their order was placed: number, items, total, a link, and the opening-soon line", async () => {
+  it("tells the customer their order was placed, from orders@, with each product and the totals", async () => {
     const { agent } = await customer();
     const number = await orderOf(agent);
     const [mail] = await sentMails(1);
@@ -105,8 +105,13 @@ describe("order emails", () => {
     expect(mail!.idempotencyKey).toBe(`${number}:placed`);
     expect(mail!.text).toContain("Hi Priya,");
     expect(mail!.text).toContain(`${SITE}/orders/${number}`);
-    expect(mail!.text).toContain("not shipped yet, and nothing is charged");
+    expect(mail!.sender).toBe("orders");
+    expect(mail!.text).toMatch(/- Orbit Smartwatch[^\n]*: 1 × ₹[\d,]+ = ₹[\d,]+/);
+    expect(mail!.text).toMatch(/Subtotal: ₹[\d,]+\nDelivery: (Free|₹\d+)\nTotal: ₹[\d,]+/);
+    expect(mail!.text).not.toContain("opening soon");
     expect(mail!.html).toContain(`href="${SITE}/orders/${number}"`);
+    expect(mail!.html).toContain(`href="${SITE}/p/orbit-smartwatch"`);
+    expect(mail!.html).toContain("Qty 1 ·");
     // never the delivery address or phone
     expect(mail!.text).not.toContain(ADDRESS.phone);
     expect(mail!.html).not.toContain(ADDRESS.line1);
@@ -175,6 +180,10 @@ describe("order emails", () => {
       `Return picked up for ${number}`,
       `Refund complete for ${number}`,
     ]);
+    // each from its own address, with the products; the refund email shows the refund
+    expect(mails.slice(1).map((m) => m.sender)).toEqual(["returns", "returns", "returns", "refunds"]);
+    expect(mails[4]!.text).toMatch(/Total: ₹[\d,]+\nRefund: ₹[\d,]+/);
+    expect(mails[4]!.text).toContain("Orbit Smartwatch");
 
     const other = await orderOf(agent);
     await OrderModel.updateOne({ number: other }, { $set: { status: "delivered", deliveredAt: new Date() } });
@@ -182,6 +191,7 @@ describe("order emails", () => {
     await team.post(`/api/admin/orders/${other}/return/reject`).send({ note: "The seal was broken" }).expect(200);
     const all = await sentMails(8);
     expect(all.at(-1)!.subject).toBe(`Return declined for ${other}`);
+    expect(all.at(-1)!.sender).toBe("returns");
     expect(all.at(-1)!.text).toContain("The seal was broken");
   });
 
@@ -197,7 +207,9 @@ describe("order emails", () => {
   it("writes the delivered email with the return deadline", () => {
     const order = {
       number: "BS-TEST0001",
-      items: [{ name: "Orbit Smartwatch", qty: 1, price: 2999 }],
+      items: [{ slug: "orbit-smartwatch", name: "Orbit Smartwatch", emoji: "⌚", hue: 210, qty: 1, price: 2999 }],
+      subtotal: 2999,
+      deliveryFee: 0,
       total: 2999,
       expectedDelivery: new Date("2026-11-01T06:00:00Z"),
       deliveredAt: new Date("2026-11-01T06:00:00Z"),
@@ -207,7 +219,9 @@ describe("order emails", () => {
     } as unknown as OrderDoc;
     const mail = orderMail(order, "delivered", { name: "Priya", email: "p@example.com" }, SITE);
     expect(mail.text).toContain("return eligible items until Sun, 8 Nov");
-    expect(mail.text).toContain("Orbit Smartwatch x 1: ₹2,999");
+    expect(mail.text).toContain("- Orbit Smartwatch: 1 × ₹2,999 = ₹2,999");
+    expect(mail.text).toContain("Delivery: Free");
+    expect(mail.html).toContain("⌚");
   });
 });
 
@@ -327,6 +341,20 @@ describe("sending through Resend", () => {
       text: "Hello",
       html: "<p>Hello</p>",
     });
+  });
+
+  it("sends each kind of email from its own address on the sender's domain", async () => {
+    const calls: RequestInit[] = [];
+    const fake = (async (_url: string, init: RequestInit) => {
+      calls.push(init);
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    await resendMailer({ apiKey: "re_test_0123456789", from: "Bunty Store <orders@bunty.test>", fetch: fake }).send({ ...mail, sender: "returns" });
+    expect(JSON.parse(String(calls[0]!.body)).from).toBe("Bunty Store Returns <returns@bunty.test>");
+    expect(senderAddress("Bunty Store <orders@bunty.me>", "refunds")).toBe("Bunty Store Refunds <refunds@bunty.me>");
+    expect(senderAddress("Bunty Store <orders@bunty.me>", "account")).toBe("Bunty Store Account <account@bunty.me>");
+    expect(senderAddress("Bunty Store <orders@bunty.me>", "hello")).toBe("Bunty Store <hello@bunty.me>");
+    expect(senderAddress("orders@bunty.me", "orders")).toBe("Bunty Store Orders <orders@bunty.me>");
   });
 
   it("fails loudly when Resend refuses, so the log says so", async () => {

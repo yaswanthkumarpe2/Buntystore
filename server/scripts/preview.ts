@@ -11,7 +11,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 
 import { createApp } from "../src/app";
-import type { Mail } from "../src/mail";
+import { senderAddress, type Mail } from "../src/mail";
 
 async function main() {
   const mongo = await MongoMemoryServer.create();
@@ -47,7 +47,11 @@ async function main() {
     process.env.PREVIEW_EMAILS === "1"
       ? {
           siteUrl: "http://localhost:4000",
-          mailer: { on: true, send: async (m: Mail) => console.log(`\nEMAIL to ${m.to}: ${m.subject}\n${m.text}\n`) },
+          mailer: {
+            on: true,
+            send: async (m: Mail) =>
+              console.log(`\nEMAIL from ${senderAddress("Bunty Store <orders@bunty.me>", m.sender)} to ${m.to}: ${m.subject}\n${m.text}\n`),
+          },
         }
       : undefined;
   // after `npm run build`, :4000 also serves the built site, with the same security policy as production

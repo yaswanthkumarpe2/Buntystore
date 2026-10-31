@@ -85,6 +85,7 @@ describe("signing in with an email code", () => {
     expect(mailer.sent[0]!.to).toBe("new.person@example.com");
     expect(mailer.sent[0]!.subject).toMatch(/^\d{6} is your Bunty Store code$/);
     expect(mailer.sent[0]!.text).toContain("create your account");
+    expect(mailer.sent[0]!.sender).toBe("account");
 
     const code = lastCode();
     const ask = await agent.post("/api/auth/code/verify").send({ email: "new.person@example.com", code }).expect(200);
@@ -97,6 +98,7 @@ describe("signing in with an email code", () => {
 
     await new Promise((r) => setTimeout(r, 20));
     const welcome = mailer.sent.find((m) => m.subject === "Welcome to Bunty Store")!;
+    expect(welcome.sender).toBe("hello");
     expect(welcome.text).toContain(`${SITE}/c/electronics`);
     // the code works once
     await request(app).post("/api/auth/code/verify").send({ email: "new.person@example.com", code }).expect(400);
