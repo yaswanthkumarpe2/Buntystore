@@ -143,9 +143,6 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
               {error && <Alert>{error}</Alert>}
               <Button type="submit" className="w-full" disabled={busy}>{busy ? "Sending your code…" : "Continue with email"}</Button>
               <p className="text-center text-xs text-ink-3">We'll email you a code. No password needed, new or returning.</p>
-              <p className="pt-1 text-center text-sm">
-                <button type="button" className="font-semibold text-brand hover:underline" onClick={() => go("password")}>Sign in with a password instead</button>
-              </p>
             </form>
           )}
 
@@ -333,12 +330,13 @@ export function SecurityCard({ user, onUser }: { user: User; onUser: (u: User) =
         {(googleSignIn || user.google) && (
           <Method name="Google" detail={user.google ? "Connected" : "Use Continue with Google with this email to connect it"} on={user.google} />
         )}
-        <Method name="Password" detail={user.hasPassword ? "Set" : "Not set: you sign in with an email code or Google"} on={user.hasPassword} />
+        {/* sign-in is by email code (or Google); only accounts that already have a password still see it */}
+        {user.hasPassword && <Method name="Password" detail="Set" on />}
       </ul>
 
       {!open ? (
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="ghost" onClick={() => setOpen(true)}>{user.hasPassword ? "Change password" : "Add a password"}</Button>
+          {user.hasPassword && <Button variant="ghost" onClick={() => setOpen(true)}>Change password</Button>}
           <Button
             variant="ghost"
             disabled={busy}
