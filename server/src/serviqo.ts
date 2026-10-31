@@ -278,7 +278,7 @@ export function serviqoRouter(opts: { connectorSecret?: string; notify?: OrderNo
           `A delivered order can be returned within ${RETURN_WINDOW_DAYS} days of delivery, except orders with grocery items.`,
           "A return covers the whole order. The refund is the order total and is completed after the parcel is picked up.",
           `Delivery is free from ₹${FREE_DELIVERY_FROM}; below that it costs ₹${DELIVERY_FEE}.`,
-          "Payment is on delivery only. Bunty Store is a demo store: no real payments or deliveries happen.",
+          "Payment is on delivery only. Bunty Store is opening soon: orders are not shipped yet, and nothing is charged.",
         ],
       },
     });

@@ -96,7 +96,7 @@ const tokenFrom = (mail: Mail) => mail.text.match(/reset-password#([A-Za-z0-9_-]
 // ---------------------------------------------------------------- order emails
 
 describe("order emails", () => {
-  it("tells the customer their order was placed: number, items, total, a link, and the demo label", async () => {
+  it("tells the customer their order was placed: number, items, total, a link, and the opening-soon line", async () => {
     const { agent } = await customer();
     const number = await orderOf(agent);
     const [mail] = await sentMails(1);
@@ -105,7 +105,7 @@ describe("order emails", () => {
     expect(mail!.idempotencyKey).toBe(`${number}:placed`);
     expect(mail!.text).toContain("Hi Priya,");
     expect(mail!.text).toContain(`${SITE}/orders/${number}`);
-    expect(mail!.text).toContain("Nothing is really charged");
+    expect(mail!.text).toContain("not shipped yet, and nothing is charged");
     expect(mail!.html).toContain(`href="${SITE}/orders/${number}"`);
     // never the delivery address or phone
     expect(mail!.text).not.toContain(ADDRESS.phone);

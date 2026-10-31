@@ -476,7 +476,7 @@ export function AdminPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Store team · Orders</h1>
-        <p className="text-sm text-ink-2">Move orders and returns forward to show customers (and Serviqo) every step.</p>
+        <p className="text-sm text-ink-2">Move orders and returns forward; the customer gets an email at each step.</p>
       </div>
       <div className="no-scrollbar flex gap-2 overflow-x-auto">
         {FILTERS.map(([v, l]) => (

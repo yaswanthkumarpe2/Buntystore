@@ -1,8 +1,9 @@
 # Bunty Store
 
-A demo online store: people sign up, shop six categories, place orders, track them, cancel them and return them.
-It exists to show how [Serviqo](https://serviqo.live) handles customer support for a real business. Payments and
-deliveries are simulated: nothing is charged and nothing is shipped.
+An online store: people sign in, shop six categories, place orders, track them, cancel them and return them, with
+customer support by [Serviqo](https://serviqo.live). Payment is on delivery only (no online payments). Bunty is
+opening soon: until it really ships, the site and every email say that orders are not shipped yet and nothing is
+charged.
 
 ## What it does
 

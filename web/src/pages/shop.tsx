@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { api, ApiError, day, money, type Address, type Order, type Product } from "../api";
 import { useStore } from "../state";
-import { Alert, Button, Card, Empty, Price, ProductCard, Spinner, Stars, Tile } from "../ui";
+import { Alert, Button, Card, Empty, Price, ProductCard, Spinner, Tile } from "../ui";
 
 /** Products for a query; a result is kept with the query it answers, so a new query never shows the old one. */
 function useProducts(query: string) {
@@ -98,7 +98,6 @@ const SORTS = [
   ["popular", "Most popular"],
   ["price_low", "Price: low to high"],
   ["price_high", "Price: high to low"],
-  ["rating", "Best rated"],
 ] as const;
 
 export function ListingPage({ mode }: { mode: "category" | "search" }) {
@@ -194,7 +193,6 @@ function ProductView({ slug }: { slug: string }) {
         <Tile emoji={p.emoji} hue={p.hue} size="lg" />
         <div>
           <h1 className="text-2xl font-bold leading-snug sm:text-3xl">{p.name}</h1>
-          <div className="mt-2"><Stars rating={p.rating} count={p.ratingCount} /></div>
           <div className="mt-4"><Price p={p} big /></div>
           <p className="text-sm text-ink-3">Inclusive of all taxes</p>
           <p className="mt-4 text-ink-2">{p.description}</p>
@@ -398,7 +396,7 @@ export function CheckoutPage() {
             <input type="radio" checked readOnly className="mt-1 accent-brand" />
             <span>
               <strong>Pay on delivery</strong>
-              <span className="block text-sm text-ink-2">This is a demo store: no money is taken and nothing is really shipped.</span>
+              <span className="block text-sm text-ink-2">We're opening soon: this order will not be shipped yet, and nothing is charged.</span>
             </span>
           </label>
         </Card>

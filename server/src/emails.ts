@@ -60,8 +60,8 @@ const C = {
   sun50: "#fff6dc",
 };
 
-const DEMO_NOTE =
-  "Bunty Store is a demo store built to show Serviqo customer support. Nothing is really charged, shipped or refunded.";
+/** Said in every email until Bunty really ships: an honest line, so nobody waits for a parcel. */
+const OPENING_NOTE = "Bunty Store is opening soon: orders placed now are not shipped yet, and nothing is charged.";
 
 interface Letter {
   subject: string;
@@ -93,7 +93,7 @@ function compose(to: string, l: Letter): Mail {
     ...(l.links ? [...l.links.map((k) => `${k.label}: ${k.url}`), ""] : []),
     "Bunty Store",
     "",
-    DEMO_NOTE,
+    OPENING_NOTE,
   ].join("\n");
 
   const p = (s: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:${C.ink2}">${escapeHtml(s)}</p>`;
@@ -141,8 +141,8 @@ function compose(to: string, l: Letter): Mail {
     links +
     `</td></tr>` +
     `<tr><td style="padding:14px 4px 0;font-size:12px;line-height:1.5;color:${C.ink3}">` +
-    `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:${C.sun50};color:${C.ink2}">Demo store</span> ` +
-    `${escapeHtml(DEMO_NOTE)}</td></tr>` +
+    `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:${C.sun50};color:${C.ink2}">Opening soon</span> ` +
+    `${escapeHtml(OPENING_NOTE)}</td></tr>` +
     `</table></td></tr></table></body></html>`;
 
   return { to, subject: l.subject, text, html, idempotencyKey: l.idempotencyKey };

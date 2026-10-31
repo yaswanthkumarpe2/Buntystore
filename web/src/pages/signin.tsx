@@ -191,7 +191,6 @@ export function AuthPage({ mode }: { mode: "signin" | "signup" }) {
               </Labelled>
               {error && <Alert>{error}</Alert>}
               <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating your account…" : "Create account"}</Button>
-              <p className="text-center text-xs text-ink-3">Bunty Store is a demo store: nothing is charged or shipped.</p>
             </form>
           )}
 

@@ -46,7 +46,7 @@ const password = z.string().min(8, "Use at least 8 characters").max(200);
 const code = z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from the email");
 const name = z.string().trim().min(2, "Enter your name").max(100);
 
-/** A handful of passwords that are guessed first; a longer list would add little for a demo store. */
+/** Passwords that are guessed first. */
 const COMMON_PASSWORDS = new Set([
   "password", "password1", "password12", "password123", "12345678", "123456789", "1234567890", "11111111",
   "00000000", "qwertyui", "qwerty123", "iloveyou", "abcd1234", "abc12345", "letmein1", "welcome1", "welcome123",

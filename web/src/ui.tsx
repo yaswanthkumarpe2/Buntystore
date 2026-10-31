@@ -135,7 +135,6 @@ export function ProductCard({ p }: { p: Product }) {
         )}
       </div>
       <h3 className="mt-3 line-clamp-2 min-h-[2.75rem] text-[15px] font-medium leading-snug group-hover:text-brand">{p.name}</h3>
-      <div className="mt-1"><Stars rating={p.rating} count={p.ratingCount} /></div>
       <div className="mt-2"><Price p={p} /></div>
       {!p.inStock && <span className="mt-1 text-sm font-semibold text-bad">Out of stock</span>}
     </Link>
@@ -231,7 +230,7 @@ export function Layout({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <div className="bg-sun-50 px-4 py-1.5 text-center text-xs text-ink-2">
-        Demo store built to show <strong>Serviqo</strong> customer support — no real payments or deliveries.
+        <strong>Opening soon.</strong> Orders placed now are not shipped yet, and nothing is charged.
       </div>
       <header className="bg-brand text-white">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
@@ -303,7 +302,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <footer className="border-t border-line bg-surface">
         {/* bottom room on phones so the round chat button never covers the last line */}
         <div className="mx-auto grid max-w-6xl gap-2 px-4 pt-6 pb-24 text-sm text-ink-3 sm:flex sm:justify-between sm:pb-6">
-          <span>© Bunty Store — a demo store for showing how Serviqo works with a real business.</span>
+          <span>© Bunty Store</span>
           <span>Pay on delivery · {7}-day returns · Free delivery over ₹499</span>
         </div>
       </footer>
