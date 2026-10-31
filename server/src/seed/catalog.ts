@@ -1,7 +1,7 @@
 import type { CategoryId } from "../models";
 
 /**
- * The demo catalogue: 6 categories, 10 products each. Pictures are drawn from
+ * The starter catalogue: 6 categories, 10 products each. Pictures are drawn from
  * an emoji on a tinted tile, so there are no image licences to worry about.
  * Prices are in rupees.
  */

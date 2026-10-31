@@ -103,7 +103,7 @@ describe("the signed door", () => {
   it("answers a correctly signed request", async () => {
     const res = await signed("GET", "/api/serviqo/policy");
     expect(res.status).toBe(200);
-    expect(res.body.demo).toBe(true);
+    expect(res.body.policy.rules.join(" ")).toContain("not shipped yet");
     expect(res.body.policy.returnWindowDays).toBe(7);
     expect(res.body.policy.cancelReasons).toContain("Ordered by mistake");
   });

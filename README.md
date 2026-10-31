@@ -13,8 +13,8 @@ charged.
   answer says whether an account exists. The session is an http-only cookie; Your account shows the ways to sign in,
   adds or changes the password and signs out every other device. Forgot password: a one-time link by email, 30 minutes.
 - **Emails** — a welcome email for a new account; sign-in codes; and the customer hears when an order is placed,
-  shipped, out for delivery, delivered or cancelled, and at each step of a return. Every email says it comes from a
-  demo store. Sent through Resend; off until `RESEND_API_KEY` is set.
+  shipped, out for delivery, delivered or cancelled, and at each step of a return. Until Bunty ships, every email says
+  orders are not shipped yet. Sent through Resend; off until `RESEND_API_KEY` is set.
 - **Shop** — 60 products in Electronics, Fashion, Home & Kitchen, Books, Beauty and Grocery; search, sort, product pages.
 - **Cart and checkout** — delivery address, pay on delivery, free delivery from ₹499 (₹40 below).
 - **Orders** — every order has a number like `BS-7K2M9XQ4` and a timeline: Placed → Packed → Shipped → Out for delivery → Delivered.
@@ -40,7 +40,7 @@ Node 22 or newer.
 npm install
 ```
 
-**Quick preview (no database needed):** an in-memory database with the catalogue, a store-team account and demo
+**Quick preview (no database needed):** an in-memory database with the catalogue, a store-team account and sample
 customers with orders in every state. It prints the password to use.
 
 ```bash
@@ -91,7 +91,7 @@ printing them.
 | `PUBLIC_URL` | with the key: this site's address, e.g. `https://bunty.me`, for links in emails |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional: a Google OAuth client (Web application) whose redirect URI is `{PUBLIC_URL}/api/auth/google/callback`; turns on "Continue with Google" |
 
-The catalogue is added automatically on first start. To create the store-team account and demo customers, run
+The catalogue is added automatically on first start. To create the store-team account and sample customers, run
 `npm run seed` once with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` set.
 
 ## Serviqo inside Bunty Store

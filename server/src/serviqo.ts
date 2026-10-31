@@ -266,7 +266,6 @@ export function serviqoRouter(opts: { connectorSecret?: string; notify?: OrderNo
   r.get("/policy", (_req, res) => {
     res.json({
       store: "Bunty Store",
-      demo: true,
       policy: {
         returnWindowDays: RETURN_WINDOW_DAYS,
         freeDeliveryFrom: FREE_DELIVERY_FROM,

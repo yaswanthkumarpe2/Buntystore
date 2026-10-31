@@ -2,7 +2,7 @@
  * Copies Bunty Store's production settings from a local env file into AWS SSM
  * Parameter Store, where the server on AWS reads them (Serviqo's ADR-061):
  *   /bunty/prod/<NAME>   what the store runs with
- *   /bunty/seed/<NAME>   only for the one-off seed (store-team and demo passwords)
+ *   /bunty/seed/<NAME>   only for the one-off seed (store-team and sample-customer passwords)
  *
  *   npm run aws:settings -- --dry-run     check the file, upload nothing
  *   npm run aws:settings                  check, then upload (SecureString, replacing old values)

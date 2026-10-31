@@ -1,5 +1,5 @@
 /**
- * Local preview: an in-memory MongoDB, the demo seed, and the API on :4000.
+ * Local preview: an in-memory MongoDB, the sample data, and the API on :4000.
  * Never reads .env and never touches a real database. Start the web app with `npm run dev:web`.
  *   npx tsx scripts/preview.ts
  */

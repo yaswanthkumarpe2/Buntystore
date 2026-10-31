@@ -2,7 +2,7 @@
   "name": "bunty-store",
   "version": "0.1.0",
   "private": true,
-  "description": "Bunty Store: a demo online store whose customer support runs on Serviqo",
+  "description": "Bunty Store: an online store whose customer support runs on Serviqo",
   "workspaces": [
     "server",
     "web"

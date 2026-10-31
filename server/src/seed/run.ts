@@ -1,5 +1,5 @@
 /**
- * `npm run seed`: the catalogue, the store admin and demo customers with orders in every state.
+ * `npm run seed`: the catalogue, the store admin and sample customers with orders in every state.
  * Passwords come from the environment (SEED_ADMIN_PASSWORD, SEED_DEMO_PASSWORD), never from the repo.
  * Safe to run twice: existing users and their orders are left alone.
  */
@@ -71,7 +71,7 @@ async function main() {
   let made = 0;
   for (const [ci, slugs, daysAgo, reached, extra] of PLANS) {
     const { user, isNew } = users[ci]!;
-    if (!isNew) continue; // existing demo customers keep their orders
+    if (!isNew) continue; // existing sample customers keep their orders
     const products = await ProductModel.find({ slug: { $in: slugs } });
     if (products.length !== slugs.length) throw new Error(`Unknown product in plan: ${slugs.join(", ")}`);
     const items = products.map((p) => ({
@@ -124,11 +124,11 @@ async function main() {
       order.refund = { status: "completed", amount: subtotal + fee, at: at(90) };
     }
     const created = await OrderModel.create(order);
-    // timestamps would stamp "now"; a demo order keeps the day it was placed
+    // timestamps would stamp "now"; a sample order keeps the day it was placed
     await OrderModel.collection.updateOne({ _id: created._id }, { $set: { createdAt: placedAt } });
     made++;
   }
-  console.log(`demo orders: ${made} created`);
+  console.log(`sample orders: ${made} created`);
   await mongoose.disconnect();
 }
 
