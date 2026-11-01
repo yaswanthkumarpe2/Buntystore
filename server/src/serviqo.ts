@@ -267,6 +267,8 @@ export function serviqoRouter(opts: { connectorSecret?: string; notify?: OrderNo
     res.json({
       store: "Bunty Store",
       policy: {
+        // amounts everywhere in this API are in rupees; the chat shows them with ₹
+        currency: "INR",
         returnWindowDays: RETURN_WINDOW_DAYS,
         freeDeliveryFrom: FREE_DELIVERY_FROM,
         deliveryFee: DELIVERY_FEE,

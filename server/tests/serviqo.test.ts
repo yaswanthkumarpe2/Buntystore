@@ -106,6 +106,7 @@ describe("the signed door", () => {
     expect(res.body.policy.rules.join(" ")).toContain("not shipped yet");
     expect(res.body.policy.returnWindowDays).toBe(7);
     expect(res.body.policy.cancelReasons).toContain("Ordered by mistake");
+    expect(res.body.policy.currency).toBe("INR");
   });
 
   it("refuses an unsigned request", async () => {

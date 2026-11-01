@@ -45,7 +45,7 @@ The reference implementation is `signRequest()` in `server/src/serviqo.ts`.
 
 | Request | Answer |
 |---|---|
-| `GET /api/serviqo/policy` | the store's rules: return window, delivery fees, the allowed cancel and return reasons, and the rules as plain sentences |
+| `GET /api/serviqo/policy` | the store's rules: the currency of every amount (`"INR"`), return window, delivery fees, the allowed cancel and return reasons, and the rules as plain sentences |
 | `GET /api/serviqo/customers/:customerId` | `customer`: id, name, email, member since, order count, open orders, open returns |
 | `GET /api/serviqo/customers/:customerId/orders?limit=5` | `orders`: the newest first, 1 to 20 (default 5) |
 | `GET /api/serviqo/customers/:customerId/orders/:number` | `order`: one order, only if it belongs to that customer (otherwise 404) |
