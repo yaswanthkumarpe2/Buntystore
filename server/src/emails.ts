@@ -169,7 +169,7 @@ function compose(to: string, l: Letter): Mail {
     ? `<p style="margin:4px 0 20px"><a href="${escapeHtml(l.button.url)}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:${C.brand};color:${C.surface};font-size:15px;font-weight:700;text-decoration:none">${escapeHtml(l.button.label)}</a></p>`
     : "";
   const code = l.code
-    ? `<p style="margin:2px 0 18px"><span style="display:inline-block;padding:12px 18px;border-radius:12px;background:${C.canvas};border:1px solid ${C.line};font-family:Consolas,Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:${C.ink}">${escapeHtml(l.code)}</span></p>`
+    ? `<p style="margin:4px 0 20px"><span style="display:inline-block;padding:14px 22px;border-radius:12px;background:${C.brand};font-family:Consolas,Menlo,monospace;font-size:32px;font-weight:800;letter-spacing:10px;color:#ffffff">${escapeHtml(l.code)}</span></p>`
     : "";
   const links = l.links
     ? `<p style="margin:0 0 6px;font-size:14px;line-height:2;color:${C.ink2}">` +
@@ -183,14 +183,20 @@ function compose(to: string, l: Letter): Mail {
     : `<span style="font-size:22px;font-weight:800;letter-spacing:1px;color:${C.brand}">B<span style="color:${C.orange}">U</span>NTY</span>`;
 
   const html =
+    // an all-white email: inboxes that honour color-scheme keep it light (Gmail's iPhone dark mode may still recolour it)
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
+    `<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">` +
+    `<style>:root{color-scheme:light only;supported-color-schemes:light}</style>` +
     `<title>${escapeHtml(l.subject)}</title></head>` +
-    `<body style="margin:0;padding:0;background:${C.canvas};font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">` +
+    `<body style="margin:0;padding:0;background:#ffffff;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">` +
     `<div style="display:none;max-height:0;overflow:hidden">${escapeHtml(l.preview)}</div>` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.canvas}"><tr><td align="center" style="padding:24px 12px">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff"><tr><td align="center" style="padding:24px 12px">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">` +
-    `<tr><td style="padding:0 0 14px">${logo}</td></tr>` +
-    `<tr><td style="padding:24px;border:1px solid ${C.line};border-radius:12px;background:${C.surface}">` +
+    // the logo in its own white badge, so it reads as the brand even where an inbox darkens the page
+    `<tr><td style="padding:0 0 16px"><span style="display:inline-block;padding:8px 12px;border-radius:12px;background:#ffffff">${logo}</span></td></tr>` +
+    // Bunty's orange as a bar across the top of the card
+    `<tr><td style="height:4px;line-height:4px;font-size:0;background:${C.orange};border-radius:12px 12px 0 0">&nbsp;</td></tr>` +
+    `<tr><td style="padding:24px;border:1px solid ${C.line};border-top:0;border-radius:0 0 12px 12px;background:#ffffff">` +
     `<p style="margin:0 0 14px;font-size:17px;font-weight:700;color:${C.ink}">${escapeHtml(l.greeting)}</p>` +
     code +
     l.paragraphs.map(p).join("") +
